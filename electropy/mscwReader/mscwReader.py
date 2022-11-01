@@ -125,12 +125,15 @@ class mscwReader():
 
     def convert_to_dl3_format(self):
         df = pd.DataFrame(self.data_dict)
+
+        # convert Xoff_derot, Yoff_derot from current epoch into J2000 epoch
         derot = np.array(list(map(convert_derotatedCoordinates_to_J2000, getUTC(df.MJD, df.timeOfDay),np.repeat(self.target.ra.deg, len(df)),np.repeat(self.target.dec.deg, len(df)), df['Xoff_derot'], df['Yoff_derot'])))
 
 
         df['Xderot'] = derot[:,0]
         df['Yderot'] = derot[:,1]
 
+        # take Xderot and Yderot and convert it into RA and DEC for each event
 
         radec = list(map(slalib.sla_dtp2s, np.deg2rad(df.Xderot), np.deg2rad(df.Yderot),
                          np.repeat(np.deg2rad(self.pointing.ra.deg), len(df)),
@@ -140,6 +143,8 @@ class mscwReader():
         df['RA'] = np.rad2deg([radec[0] for radec in radec])
         df['DEC'] = np.rad2deg([radec[1] for radec in radec])
 
+        # take RA and DEC of each event into elevation and azimuth for each event
+
 
         elaz = list(map(getHorizontalCoordinates, df.MJD, df.timeOfDay, df.DEC, df.RA))
 
@@ -148,11 +153,14 @@ class mscwReader():
         df['Az'] = [elaz[1] for elaz in elaz]
 
 
+        # These are all the required coulmns we need for DL3 style output formatting
+        
         required_col = ['runNumber', 'eventNumber', 'timeOfDay', 'MJD', 'Erec',
                 'Erec_Err', 'XCore', 'YCore', 'Xderot', 'Yderot', 'NImages',
                 'ImgSel', 'MeanPedvar', 'MSCW', 'MSCL', 'RA',
                 'DEC', 'Az', 'El', 'EmissionHeight', 'Xoff', 'Yoff']
 
+        # this is DL3 output file
         self.DL3data = df[required_col]
 
 
