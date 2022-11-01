@@ -194,8 +194,83 @@ class IRFMaker():
 
         fig1.tight_layout()
         fig2.tight_layout()
-        
+
         return fig1, fig2 
+
+
+    def makeEnergyResponse(self, prob = None):
+        if prob is None:
+            prob = self.prob_cut
+
+
+
+        # Define energy binning
+        # Use the same binning for MC and Rec
+        ebins = np.linspace(-2,2, 41)
+        ebinsW = ebins[1:] - ebins[:-1]
+        ebinsC = ebins[:-1] + 0.5 * ebinsW
+
+
+        passingEvents = self.eventData["data"][self.eventData["data"]["Prob"]>prob]
+
+        energyResponse = np.zeros(
+            (
+                self.eventData["theta2_binning_cen"].shape[0],
+                ebinsC.shape[0],
+                ebinsC.shape[0]
+            )
+        )
+
+        for i in range(energyResponse.shape[0]):
+
+
+            wob_mask = (passingEvents["Theta2"] > self.eventData["theta2_binning"][i]) & (passingEvents["Theta2"] <= self.eventData["theta2_binning"][i+1])
+            energyResponse[i], _, _ = np.histogram2d(
+                                            passingEvents["ENERGY_MC"][wob_mask],
+                                            passingEvents["ENERGY"][wob_mask],
+                                            bins = [ebins, ebins]
+                )
+            energyResponse[i] += 1e-9 # Remove 0/0
+            # Normalize
+            for j in range(energyResponse.shape[2]):
+                energyResponse[i,:,j] /= np.sum(energyResponse[i,:,j])
+
+
+
+        self.eventData["energy_response"] = energyResponse
+        self.eventData["energy_response_ebins"] = ebins
+
+
+
+    def makeEnergyResponsePlots(self, prob = None):
+
+        # Check if the effective areas have been calculated
+        if "energy_response" not in self.eventData.keys():
+            self.makeEnergyResponse(prob)
+
+
+        fig, axes = plt.subplots(3,3, figsize = (18,18))
+
+        for i, ax in enumerate(axes.ravel()):
+            p = ax.pcolormesh(
+                self.eventData["energy_response_ebins"], 
+                self.eventData["energy_response_ebins"], 
+                self.eventData["energy_response"][i],
+                cmap = cmap)
+
+            ax.plot(self.eventData["energy_response_ebins"], self.eventData["energy_response_ebins"], "r-")
+            ax.plot(self.eventData["energy_response_ebins"], self.eventData["energy_response_ebins"] + 0.2, "r:")
+            ax.plot(self.eventData["energy_response_ebins"], self.eventData["energy_response_ebins"] - 0.2, "r:")
+
+            ax.set_title(f'{np.sqrt(self.eventData["theta2_binning_cen"][i]):0.2f} Degrees Wobble')
+            ax.grid(which = 'both')
+            ax.set_xlabel("Reconstructed Energy [TeV]")
+            ax.set_ylabel("Simulated Energy [TeV]")
+            fig.colorbar(p, ax=ax).set_label('Prob')
+
+        fig.tight_layout()
+        return fig
+
 
 
     def writeToFile(self, fname):
