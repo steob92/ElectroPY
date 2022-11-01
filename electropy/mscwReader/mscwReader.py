@@ -97,11 +97,20 @@ class mscwReader():
             "EVENT_ID" : data["eventNumber"][emask], # required colnames 
             "RA" :  ra[emask], # required colnames 
             "DEC" :  dec[emask], # required colnames 
-            "Xoff_derot" :  data["Xoff_derot"][emask], # required colnames 
-            "Yoff_derot" :  data["Yoff_derot"][emask], # required colnames 
-            "TIME" : data["Yoff_derot"][emask] # required colnames 
+            "Xoff_derot" :  data["Xoff_derot"][emask], 
+            "Yoff_derot" :  data["Yoff_derot"][emask], 
+            "Xoff" :  data["Xoff"][emask], 
+            "Yoff" :  data["Yoff"][emask], 
+            "Xcore" :  data["Xcore"][emask], 
+            "Ycore" :  data["Ycore"][emask], 
+            "Core" : np.sqrt(data["Xcore"][emask]**2 + data["Ycore"][emask]**2),
+            "NImages" : data["NImages"][emask],
+            "TIME" : np.zeros(len(data["Yoff_derot"][emask])) # required colnames 
         }
 
+        # Get the MC (true energy) for simulated data
+        if "MCe0" in data.keys():
+            self.data_dict["ENERGY_MC"] =  data["MCe0"][emask]
 
 
     def extractSimulatedSpectrum(self,fname):
