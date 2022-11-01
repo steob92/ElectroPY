@@ -1,11 +1,13 @@
-import sys
-sys.path.append('../utils/')
+#import sys
+#sys.path.append('../utils/')
+
+from utils.VSkyCoordinatesUtility import *  
 import numpy as np
 from astropy.coordinates import SkyCoord
 import uproot
 import pandas as pd
 from pyslalib import slalib
-from VSkyCoordinatesUtility import *
+#from VSkyCoordinatesUtility import *
 
 
 from astropy.coordinates import SkyCoord
