@@ -69,31 +69,6 @@ class mscwReader():
 
         # Obtain data
         data = self.readFile(filename)
-
-        # Get coords of telescope pointing
-        self.pointing = SkyCoord(ra = self.tel_ra, dec=self.tel_dec, unit='deg', frame='icrs')
-        # self.pointing = pointing.transform_to('fk5')
-        # Get geometry
-        #self.geom = WcsGeom.create(
-         #               npix=(40000, 40000), binsz=0.0001, skydir= self.pointing,
-          #              proj="TAN", frame="icrs"#, axes=[energy_axis]
-           #     )
-
-        # get world coordinate system
-        #self.wcs = WCS(self.geom.to_header())
-
-        # camera coords to pixel
-        #ff = interp1d(np.arange(-2,2, 0.0001), np.arange(1,40001,1), kind="linear", bounds_error=False, fill_value=-999)
-
-        # X is flipped lr
-        #x = ff(-data["Xoff_derot"])
-        #y = ff(data["Yoff_derot"])
-
-        # Get RA/Dec of each event
-        #coords = self.wcs.pixel_to_world(x, y)
-        #ra = np.array([r.deg for r in coords.ra])
-        #dec = np.array([d.deg for d in coords.dec])
-        
         # Mask out failed events
         emask = data["ErecS"] >0
         emask *= data["theta2"] <= 2. 
@@ -143,7 +118,7 @@ class mscwReader():
         df['RA'] = np.rad2deg([radec[0] for radec in radec])
         df['DEC'] = np.rad2deg([radec[1] for radec in radec])
 
-        # take RA and DEC of each event into elevation and azimuth for each event
+        # convert RA and DEC of each event into elevation and azimuth
 
 
         elaz = list(map(getHorizontalCoordinates, df.MJD, df.timeOfDay, df.DEC, df.RA))
