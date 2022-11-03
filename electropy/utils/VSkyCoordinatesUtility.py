@@ -84,10 +84,14 @@ def getWobbledDirection( iNorth, iEast, idec, ira):
     return dec_W, ra_W
 
 
-def precessTarget( iMJD_end, ra_deg, dec_deg, iMJD_start, iUnitIsDeg=True ):
+def precessTarget( iMJD_end, ra, dec, iMJD_start, iUnitIsDeg=True ):
     if iUnitIsDeg:
-        ra_rad = np.deg2rad(ra_deg)
-        dec_rad = np.deg2rad(dec_deg)
+        ra_rad = np.deg2rad(ra)
+        dec_rad = np.deg2rad(dec)
+
+    else:
+        ra_rad = ra
+        dec_rad = dec
 
     oy, om, od, ofd, j = slalib.sla_djcl(iMJD_end)
     ny, nd, j= slalib.sla_clyd(oy, om, od)
