@@ -135,7 +135,7 @@ class mscwReader():
 
         # These are all the required coulmns we need for DL3 style output formatting
         
-        required_col = ['runNumber', 'EVENT_ID', 'timeOfDay', 'MJD', 'ENERGY',
+        required_col = ['runNumber', 'EVENT_ID', 'timeOfDay', 'MJD', 'MCe0', 'ENERGY',
                         'dES','EChi2S','SizeSecondMax', 'XCore', 'YCore', 'Core', 'Xderot', 'Yderot', 'NImages',
                 'ImgSel', 'MeanPedvar', 'MSCW', 'MSCL', 'RA',
                         'DEC', 'Az', 'El', 'EmissionHeight', 'Xoff', 'Yoff', 'TIME']
