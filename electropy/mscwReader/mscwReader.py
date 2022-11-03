@@ -140,8 +140,7 @@ class mscwReader():
         #df = pd.DataFrame(self.data_dict)
 
         if self.simulation_data:
-            DL3data = self.data_dict
-            return DL3data
+            pass
 
         else:
             # convert Xoff_derot, Yoff_derot from current epoch into J2000 epoch
@@ -177,11 +176,7 @@ class mscwReader():
 
 
             # These are all the required coulmns we need for DL3 style output formatting
-        
-            DL3data = self.data_dict
-
-
-        return DL3data 
+  
         
 
 
