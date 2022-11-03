@@ -1,15 +1,9 @@
-#import sys
-#sys.path.append('../utils/')
-
 from utils.VSkyCoordinatesUtility import *  
 import numpy as np
 from astropy.coordinates import SkyCoord
 import uproot
 import pandas as pd
 from pyslalib import slalib
-#from VSkyCoordinatesUtility import *
-
-
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from astropy.io import fits
@@ -23,13 +17,18 @@ from gammapy.maps import WcsNDMap, WcsGeom, MapAxis, RegionGeom, Map
 
 class mscwReader():
 
-    def __init__(self):
-        pass
+    def __init__(self, sim):
+        self.simulation_data = sim
+        if self.simulation_data:
+            self.target = SkyCoord(0, 0, unit='deg', frame='icrs')
+        else:
+            print("Please select the target name for the data run, run setTarget(target='Crab')")
         # filename
         # self.object
         # self.data
 
     def setTarget(self, target):
+        
         self.target = SkyCoord.from_name(target)
         #self.targetCamX = (self.target.ra.deg - np.rad2deg(self.tel_ra)) * np.cos(self.tel_dec)
         #self.targetCamY = self.target.dec.deg - np.rad2deg(self.tel_dec)
@@ -60,6 +59,7 @@ class mscwReader():
             # Give default RA/Dec
             self.tel_ra = 0
             self.tel_dec = 0
+            self.pointing = SkyCoord(self.tel_ra, self.tel_dec, unit='deg', frame='icrs')
 
         # Close the file to help with memory
         dataFile.close()
@@ -75,75 +75,120 @@ class mscwReader():
         emask *= data["theta2"] <= 2. 
         # Store data to dictionary
         VTS_REFERENCE_MJD = 53402.0
+        if self.simulation_data:
+            self.data_dict = {
+                "runNumber": data["runNumber"][emask],
+                "EVENT_ID" : data["eventNumber"][emask],
+                "timeOfDay": data["Time"][emask],
+                "MJD": data["MJD"][emask],
+                "ENERGY" : data["ErecS"][emask],
+                "dES" : data["dES"][emask],
+                "MCe0": data["MCe0"][emask],
+                "NImages" : data["NImages"][emask],
+                "ImgSel": data["ImgSel"][emask],
+                "MeanPedvar": data["meanPedvar_Image"][emask],
+                "MSCW" : data["MSCW"][emask],
+                "MSCL" : data["MSCL"][emask],
+                "EmissionHeight" : data["EmissionHeight"][emask],
+                "Xoff_derot": data["Xoff_derot"][emask],
+                "Yoff_derot": data["Yoff_derot"][emask],
+                "EChi2S" : data["EChi2S"][emask],
+                "SizeSecondMax" : data["SizeSecondMax"][emask],
+                "XCore" : data["Xcore"][emask],
+                "YCore" : data["Ycore"][emask],
+                "Core" : np.sqrt(data["Xcore"][emask]**2 + data["Ycore"][emask]**2),
+                "Xoff" : data["Xoff"][emask],
+                "Yoff": data["Yoff"][emask],
+                "El" : 90-data["Ze"][emask],
+                "Az" : data["Az"][emask],
+                "RA": np.zeros(len(data["Yoff_derot"][emask])), # we dont care about ra and dec
+                "DEC": np.zeros(len(data["Yoff_derot"][emask])), 
+                "TIME": np.zeros(len(data["Yoff_derot"][emask])) # required colnames 
+            }
 
-        self.data_dict = {
-            "runNumber": data["runNumber"][emask],
-            "EVENT_ID" : data["eventNumber"][emask],
-            "timeOfDay": data["Time"][emask],
-            "MJD": data["MJD"][emask],
-            "ENERGY" : data["ErecS"][emask],
-            "dES" : data["dES"][emask],
-            "MCe0": data["MCe0"][emask],
-            "NImages" : data["NImages"][emask],
-            "ImgSel": data["ImgSel"][emask],
-            "MeanPedvar": data["meanPedvar_Image"][emask],
-            "MSCW" : data["MSCW"][emask],
-            "MSCL" : data["MSCL"][emask],
-            "EmissionHeight" : data["EmissionHeight"][emask],
-            "Xoff_derot": data["Xoff_derot"][emask],
-            "Yoff_derot": data["Yoff_derot"][emask],
-            "EChi2S" : data["EChi2S"][emask],
-            "SizeSecondMax" : data["SizeSecondMax"][emask],
-            "XCore" : data["Xcore"][emask],
-            "YCore" : data["Ycore"][emask],
-            "Core" : np.sqrt(data["Xcore"][emask]**2 + data["Ycore"][emask]**2),
-            "Xoff" : data["Xoff"][emask],
-            "Yoff": data["Yoff"][emask],
-            "TIME": np.zeros(len(data["Yoff_derot"][emask])) # required colnames 
-        }
+        else:
+            self.data_dict = {
+                "runNumber": data["runNumber"][emask],
+                "EVENT_ID" : data["eventNumber"][emask],
+                "timeOfDay": data["Time"][emask],
+                "MJD": data["MJD"][emask],
+                "ENERGY" : data["ErecS"][emask],
+                "dES" : data["dES"][emask],
+                "NImages" : data["NImages"][emask],
+                "ImgSel": data["ImgSel"][emask],
+                "MeanPedvar": data["meanPedvar_Image"][emask],
+                "MSCW" : data["MSCW"][emask],
+                "MSCL" : data["MSCL"][emask],
+                "EmissionHeight" : data["EmissionHeight"][emask],
+                "Xoff_derot": data["Xoff_derot"][emask],
+                "Yoff_derot": data["Yoff_derot"][emask],
+                "EChi2S" : data["EChi2S"][emask],
+                "SizeSecondMax" : data["SizeSecondMax"][emask],
+                "XCore" : data["Xcore"][emask],
+                "YCore" : data["Ycore"][emask],
+                "Core" : np.sqrt(data["Xcore"][emask]**2 + data["Ycore"][emask]**2),
+                "Xoff" : data["Xoff"][emask],
+                "Yoff": data["Yoff"][emask],
+                "TIME": np.zeros(len(data["Yoff_derot"][emask])) # required colnames
+            }
+
 
 
     def convert_to_dl3_format(self):
+
+        
         df = pd.DataFrame(self.data_dict)
 
-        # convert Xoff_derot, Yoff_derot from current epoch into J2000 epoch
-        derot = np.array(list(map(convert_derotatedCoordinates_to_J2000, getUTC(df.MJD, df.timeOfDay),np.repeat(self.target.ra.deg, len(df)),np.repeat(self.target.dec.deg, len(df)), df['Xoff_derot'], df['Yoff_derot'])))
+        if self.simulation_data:
+            required_col = ['runNumber', 'EVENT_ID', 'timeOfDay', 'MJD', 'MCe0', 'ENERGY',
+                            'dES','EChi2S','SizeSecondMax', 'XCore', 'YCore', 'Core', 'Xoff_derot', 'Yoff_derot', 'NImages',
+                            'ImgSel', 'MeanPedvar', 'MSCW', 'MSCL', 'RA',
+                            'DEC', 'Az', 'El', 'EmissionHeight', 'Xoff', 'Yoff', 'TIME']
+            
+            DL3data = df[required_col]
+
+        else:
+            # convert Xoff_derot, Yoff_derot from current epoch into J2000 epoch
+            derot = np.array(list(map(convert_derotatedCoordinates_to_J2000, getUTC(df.MJD, df.timeOfDay),np.repeat(self.target.ra.deg, len(df)),np.repeat(self.target.dec.deg, len(df)), df['Xoff_derot'], df['Yoff_derot'])))
 
 
-        df['Xderot'] = derot[:,0]
-        df['Yderot'] = derot[:,1]
+            df['Xderot'] = derot[:,0]
+            df['Yderot'] = derot[:,1]
 
-        # take Xderot and Yderot and convert it into RA and DEC for each event
+            # take Xderot and Yderot and convert it into RA and DEC for each event
 
-        radec = list(map(slalib.sla_dtp2s, np.deg2rad(df.Xderot), np.deg2rad(df.Yderot),
-                         np.repeat(np.deg2rad(self.pointing.ra.deg), len(df)),
-                         np.repeat(np.deg2rad(self.pointing.dec.deg), len(df)),
-                         ))
+            radec = list(map(slalib.sla_dtp2s, np.deg2rad(df.Xderot), np.deg2rad(df.Yderot),
+                             np.repeat(np.deg2rad(self.pointing.ra.deg), len(df)),
+                             np.repeat(np.deg2rad(self.pointing.dec.deg), len(df)),
+                             ))
 
-        df['RA'] = np.rad2deg([radec[0] for radec in radec])
-        df['DEC'] = np.rad2deg([radec[1] for radec in radec])
+            df['RA'] = np.rad2deg([radec[0] for radec in radec])
+            df['DEC'] = np.rad2deg([radec[1] for radec in radec])
 
-        # convert RA and DEC of each event into elevation and azimuth
-
-
-        elaz = list(map(getHorizontalCoordinates, df.MJD, df.timeOfDay, df.DEC, df.RA))
+            # convert RA and DEC of each event into elevation and azimuth
 
 
-        df['El'] = [elaz[0] for elaz in elaz]
-        df['Az'] = [elaz[1] for elaz in elaz]
+            elaz = list(map(getHorizontalCoordinates, df.MJD, df.timeOfDay, df.DEC, df.RA))
 
 
-        # These are all the required coulmns we need for DL3 style output formatting
+            df['El'] = [elaz[0] for elaz in elaz]
+            df['Az'] = [elaz[1] for elaz in elaz]
+
+
+            # These are all the required coulmns we need for DL3 style output formatting
         
-        required_col = ['runNumber', 'EVENT_ID', 'timeOfDay', 'MJD', 'MCe0', 'ENERGY',
-                        'dES','EChi2S','SizeSecondMax', 'XCore', 'YCore', 'Core', 'Xderot', 'Yderot', 'NImages',
-                'ImgSel', 'MeanPedvar', 'MSCW', 'MSCL', 'RA',
-                        'DEC', 'Az', 'El', 'EmissionHeight', 'Xoff', 'Yoff', 'TIME']
+            required_col = ['runNumber', 'EVENT_ID', 'timeOfDay', 'MJD', 'ENERGY',
+                            'dES','EChi2S','SizeSecondMax', 'XCore', 'YCore', 'Core', 'Xderot', 'Yderot', 'NImages',
+                            'ImgSel', 'MeanPedvar', 'MSCW', 'MSCL', 'RA',
+                            'DEC', 'Az', 'El', 'EmissionHeight', 'Xoff', 'Yoff', 'TIME']
 
 
-           # this is DL3 output file
-        self.DL3data = df[required_col]
-        self.DL3data.rename(columns = {'Xderot':'Xoff_derot', 'Yderot':'Yoff_derot'}, inplace = True)
+            # this is DL3 output file
+            DL3data = df[required_col]
+            DL3data.rename(columns = {'Xderot':'Xoff_derot', 'Yderot':'Yoff_derot'}, inplace = True)
+
+
+        return DL3data
         
 
 
