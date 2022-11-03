@@ -72,9 +72,9 @@ class mscwReader():
         data = self.readFile(filename)
         # Mask out failed events
         emask = data["ErecS"] >0
-        emask *= data["theta2"] <= 2. 
+#        emask *= data["theta2"] <= 2. 
         # Store data to dictionary
-        VTS_REFERENCE_MJD = 53402.0
+ #       VTS_REFERENCE_MJD = 53402.0
         if self.simulation_data:
             self.data_dict = {
                 "runNumber": data["runNumber"][emask],
@@ -134,61 +134,54 @@ class mscwReader():
 
 
 
-    def convert_to_dl3_format(self):
+    def convertToDL3Format(self):
 
         
-        df = pd.DataFrame(self.data_dict)
+        #df = pd.DataFrame(self.data_dict)
 
         if self.simulation_data:
-            required_col = ['runNumber', 'EVENT_ID', 'timeOfDay', 'MJD', 'MCe0', 'ENERGY',
-                            'dES','EChi2S','SizeSecondMax', 'XCore', 'YCore', 'Core', 'Xoff_derot', 'Yoff_derot', 'NImages',
-                            'ImgSel', 'MeanPedvar', 'MSCW', 'MSCL', 'RA',
-                            'DEC', 'Az', 'El', 'EmissionHeight', 'Xoff', 'Yoff', 'TIME']
-            
-            DL3data = df[required_col]
+            DL3data = self.data_dict
+            return DL3data
 
         else:
             # convert Xoff_derot, Yoff_derot from current epoch into J2000 epoch
-            derot = np.array(list(map(convert_derotatedCoordinates_to_J2000, getUTC(df.MJD, df.timeOfDay),np.repeat(self.target.ra.deg, len(df)),np.repeat(self.target.dec.deg, len(df)), df['Xoff_derot'], df['Yoff_derot'])))
+            derot = np.array(list(map(convert_derotatedCoordinates_to_J2000, getUTC(self.data_dict['MJD'], self.data_dict["timeOfDay"]),
+                          np.repeat(self.target.ra.deg, len(self.data_dict["Xoff_derot"])),
+                          np.repeat(self.target.dec.deg, len(self.data_dict["Xoff_derot"])), 
+                                    self.data_dict['Xoff_derot'],self.data_dict['Yoff_derot'])))
+
+            
 
 
-            df['Xderot'] = derot[:,0]
-            df['Yderot'] = derot[:,1]
+            self.data_dict['Xoff_derot'] = np.array(derot[:,0])
+            self.data_dict['Yoff_derot'] = np.array(derot[:,1])
 
             # take Xderot and Yderot and convert it into RA and DEC for each event
 
-            radec = list(map(slalib.sla_dtp2s, np.deg2rad(df.Xderot), np.deg2rad(df.Yderot),
-                             np.repeat(np.deg2rad(self.pointing.ra.deg), len(df)),
-                             np.repeat(np.deg2rad(self.pointing.dec.deg), len(df)),
+            radec = list(map(slalib.sla_dtp2s, np.deg2rad(self.data_dict['Xoff_derot']), np.deg2rad(self.data_dict['Yoff_derot']),
+                             np.repeat(np.deg2rad(self.pointing.ra.deg), len(self.data_dict["Xoff_derot"])),
+                             np.repeat(np.deg2rad(self.pointing.dec.deg), len(self.data_dict["Xoff_derot"])),
                              ))
 
-            df['RA'] = np.rad2deg([radec[0] for radec in radec])
-            df['DEC'] = np.rad2deg([radec[1] for radec in radec])
+            self.data_dict['RA'] = np.array(np.rad2deg([radec[0] for radec in radec]))
+            self.data_dict['DEC'] = np.array(np.rad2deg([radec[1] for radec in radec]))
 
             # convert RA and DEC of each event into elevation and azimuth
 
 
-            elaz = list(map(getHorizontalCoordinates, df.MJD, df.timeOfDay, df.DEC, df.RA))
+            elaz = list(map(getHorizontalCoordinates, self.data_dict['MJD'], self.data_dict['timeOfDay'], self.data_dict['DEC'], self.data_dict['RA']))
 
 
-            df['El'] = [elaz[0] for elaz in elaz]
-            df['Az'] = [elaz[1] for elaz in elaz]
+            self.data_dict['El'] = np.array([elaz[0] for elaz in elaz])
+            self.data_dict['Az'] = np.array([elaz[1] for elaz in elaz])
 
 
             # These are all the required coulmns we need for DL3 style output formatting
         
-            required_col = ['runNumber', 'EVENT_ID', 'timeOfDay', 'MJD', 'ENERGY',
-                            'dES','EChi2S','SizeSecondMax', 'XCore', 'YCore', 'Core', 'Xderot', 'Yderot', 'NImages',
-                            'ImgSel', 'MeanPedvar', 'MSCW', 'MSCL', 'RA',
-                            'DEC', 'Az', 'El', 'EmissionHeight', 'Xoff', 'Yoff', 'TIME']
+            DL3data = self.data_dict
 
 
-            # this is DL3 output file
-            DL3data = df[required_col]
-            DL3data.rename(columns = {'Xderot':'Xoff_derot', 'Yderot':'Yoff_derot'}, inplace = True)
-
-
-        return DL3data
+        return DL3data 
         
 
 
