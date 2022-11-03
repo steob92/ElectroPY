@@ -15,7 +15,6 @@ from astropy.table import Table
 from astropy.io import fits
 from astropy import units as u
 from astropy.wcs import WCS
-
 from scipy.interpolate import RegularGridInterpolator, interp1d
 
 
@@ -75,14 +74,16 @@ class mscwReader():
         emask = data["ErecS"] >0
         emask *= data["theta2"] <= 2. 
         # Store data to dictionary
+        VTS_REFERENCE_MJD = 53402.0
 
         self.data_dict = {
             "runNumber": data["runNumber"][emask],
-            "eventNumber" : data["eventNumber"][emask],
+            "EVENT_ID" : data["eventNumber"][emask],
             "timeOfDay": data["Time"][emask],
             "MJD": data["MJD"][emask],
-            "Erec" : data["ErecS"][emask],
-            "Erec_Err" : data["dES"][emask],
+            "ENERGY" : data["ErecS"][emask],
+            "dES" : data["dES"][emask],
+            "MCe0": data["MCe0"][emask],
             "NImages" : data["NImages"][emask],
             "ImgSel": data["ImgSel"][emask],
             "MeanPedvar": data["meanPedvar_Image"][emask],
@@ -95,8 +96,10 @@ class mscwReader():
             "SizeSecondMax" : data["SizeSecondMax"][emask],
             "XCore" : data["Xcore"][emask],
             "YCore" : data["Ycore"][emask],
+            "Core" : np.sqrt(data["Xcore"][emask]**2 + data["Ycore"][emask]**2),
             "Xoff" : data["Xoff"][emask],
-            "Yoff": data["Yoff"][emask]
+            "Yoff": data["Yoff"][emask],
+            "TIME": np.zeros(len(data["Yoff_derot"][emask])) # required colnames 
         }
 
 
@@ -132,13 +135,16 @@ class mscwReader():
 
         # These are all the required coulmns we need for DL3 style output formatting
         
-        required_col = ['runNumber', 'eventNumber', 'timeOfDay', 'MJD', 'Erec',
-                'Erec_Err', 'XCore', 'YCore', 'Xderot', 'Yderot', 'NImages',
+        required_col = ['runNumber', 'EVENT_ID', 'timeOfDay', 'MJD', 'ENERGY',
+                        'dES','EChi2S','SizeSecondMax', 'XCore', 'YCore', 'Core', 'Xderot', 'Yderot', 'NImages',
                 'ImgSel', 'MeanPedvar', 'MSCW', 'MSCL', 'RA',
-                'DEC', 'Az', 'El', 'EmissionHeight', 'Xoff', 'Yoff']
+                        'DEC', 'Az', 'El', 'EmissionHeight', 'Xoff', 'Yoff', 'TIME']
 
-        # this is DL3 output file
+
+           # this is DL3 output file
         self.DL3data = df[required_col]
+        self.DL3data.rename(columns = {'Xderot':'Xoff_derot', 'Yderot':'Yoff_derot'}, inplace = True)
+        
 
 
 
