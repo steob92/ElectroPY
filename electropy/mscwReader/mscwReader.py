@@ -1,30 +1,38 @@
-import uproot
 import numpy as np
+from astropy.coordinates import SkyCoord
+import uproot
+import pandas as pd
+from pyslalib import slalib
+# Make it a little easier to know where this is coming from
+from electropy.utils import VSkyCoordinatesUtility as VSK
+
+
 
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from astropy.io import fits
 from astropy import units as u
 from astropy.wcs import WCS
-
 from scipy.interpolate import RegularGridInterpolator, interp1d
-
-
-from gammapy.maps import WcsNDMap, WcsGeom, MapAxis, RegionGeom, Map
 
 
 class mscwReader():
 
-    def __init__(self):
-        pass
+    def __init__(self, sim):
+        self.simulation_data = sim
+        if self.simulation_data:
+            self.target = SkyCoord(0, 0, unit='deg', frame='icrs')
+        else:
+            print("Please select the target name for the data run, run setTarget(target='Crab')")
         # filename
         # self.object
         # self.data
 
     def setTarget(self, target):
+        
         self.target = SkyCoord.from_name(target)
-        self.targetCamX = (self.target.ra.deg - np.rad2deg(self.tel_ra)) * np.cos(self.tel_dec)
-        self.targetCamY = self.target.dec.deg - np.rad2deg(self.tel_dec)
+        #self.targetCamX = (self.target.ra.deg - np.rad2deg(self.tel_ra)) * np.cos(self.tel_dec)
+        #self.targetCamY = self.target.dec.deg - np.rad2deg(self.tel_dec)
 
 
 
@@ -40,14 +48,20 @@ class mscwReader():
         try :
 
             pointingReduced = dataFile["pointingDataReduced"].arrays(library="numpy")
+            self.tel_ra = np.rad2deg(np.mean(pointingReduced["TelRAJ2000"]))
+            self.tel_dec = np.rad2deg(np.mean(pointingReduced["TelDecJ2000"]))
+            self.pointing = SkyCoord(self.tel_ra, self.tel_dec, unit='deg', frame='icrs')
 
-            self.tel_ra = np.median(pointingReduced["TelRAJ2000"])
-            self.tel_dec = np.median(pointingReduced["TelDecJ2000"])
+
+            #self.tel_ra = np.median(pointingReduced["TelRAJ2000"])
+            #self.tel_dec = np.median(pointingReduced["TelDecJ2000"])
+
         # Simulated data
         except Exception as e:
             # Give default RA/Dec
             self.tel_ra = 0
             self.tel_dec = 0
+            self.pointing = SkyCoord(self.tel_ra, self.tel_dec, unit='deg', frame='icrs')
 
         # Close the file to help with memory
         dataFile.close()
@@ -58,31 +72,187 @@ class mscwReader():
 
         # Obtain data
         data = self.readFile(filename)
+        # Mask out failed events
+        emask = data["ErecS"] >0
+#        emask *= data["theta2"] <= 2. 
+        # Store data to dictionary
+ #       VTS_REFERENCE_MJD = 53402.0
+        if self.simulation_data:
+            self.data_dict = {
+                "runNumber": data["runNumber"][emask],
+                "EVENT_ID" : data["eventNumber"][emask],
+                "timeOfDay": data["Time"][emask],
+                "MJD": data["MJD"][emask],
+                "ENERGY" : data["ErecS"][emask],
+                "dES" : data["dES"][emask],
+                "MCe0": data["MCe0"][emask],
+                "NImages" : data["NImages"][emask],
+                "ImgSel": data["ImgSel"][emask],
+                "MeanPedvar": data["meanPedvar_Image"][emask],
+                "MSCW" : data["MSCW"][emask],
+                "MSCL" : data["MSCL"][emask],
+                "EmissionHeight" : data["EmissionHeight"][emask],
+                "Xoff_derot": data["Xoff_derot"][emask],
+                "Yoff_derot": data["Yoff_derot"][emask],
+                "EChi2S" : data["EChi2S"][emask],
+                "SizeSecondMax" : data["SizeSecondMax"][emask],
+                "XCore" : data["Xcore"][emask],
+                "YCore" : data["Ycore"][emask],
+                "Core" : np.sqrt(data["Xcore"][emask]**2 + data["Ycore"][emask]**2),
+                "Xoff" : data["Xoff"][emask],
+                "Yoff": data["Yoff"][emask],
+                "El" : 90-data["Ze"][emask],
+                "Az" : data["Az"][emask],
+                "RA": np.zeros(len(data["Yoff_derot"][emask])), # we dont care about ra and dec
+                "DEC": np.zeros(len(data["Yoff_derot"][emask])), 
+                "TIME": np.zeros(len(data["Yoff_derot"][emask])) # required colnames 
+            }
 
-        # Get coords of telescope pointing
-        self.pointing = SkyCoord(ra = self.tel_ra *u.rad, dec=self.tel_dec *u.rad, frame='icrs')
-        # self.pointing = pointing.transform_to('fk5')
-        # Get geometry
-        self.geom = WcsGeom.create(
-                        npix=(40000, 40000), binsz=0.0001, skydir= self.pointing,
-                        proj="TAN", frame="icrs"#, axes=[energy_axis]
+        else:
+            self.data_dict = {
+                "runNumber": data["runNumber"][emask],
+                "EVENT_ID" : data["eventNumber"][emask],
+                "timeOfDay": data["Time"][emask],
+                "MJD": data["MJD"][emask],
+                "ENERGY" : data["ErecS"][emask],
+                "dES" : data["dES"][emask],
+                "NImages" : data["NImages"][emask],
+                "ImgSel": data["ImgSel"][emask],
+                "MeanPedvar": data["meanPedvar_Image"][emask],
+                "MSCW" : data["MSCW"][emask],
+                "MSCL" : data["MSCL"][emask],
+                "EmissionHeight" : data["EmissionHeight"][emask],
+                "Xoff_derot": data["Xoff_derot"][emask],
+                "Yoff_derot": data["Yoff_derot"][emask],
+                "EChi2S" : data["EChi2S"][emask],
+                "SizeSecondMax" : data["SizeSecondMax"][emask],
+                "XCore" : data["Xcore"][emask],
+                "YCore" : data["Ycore"][emask],
+                "Core" : np.sqrt(data["Xcore"][emask]**2 + data["Ycore"][emask]**2),
+                "Xoff" : data["Xoff"][emask],
+                "Yoff": data["Yoff"][emask],
+                "TIME": np.zeros(len(data["Yoff_derot"][emask])) # required colnames
+            }
+
+
+    # Name change needed Here we're just getting the RA/Dec
+    def convertToDL3Format(self):
+        df = pd.DataFrame(self.data_dict)
+
+        # convert Xoff_derot, Yoff_derot from current epoch into J2000 epoch
+        derot = np.array(
+            list(
+                map(
+                    VSK.convert_derotatedCoordinates_to_J2000, 
+                    VSK.getUTC(df.MJD, df.timeOfDay),
+                    np.repeat(self.target.ra.deg, len(df)), 
+                    np.repeat(self.target.dec.deg, len(df)), 
+                    df['Xoff_derot'], df['Yoff_derot']
+                    )
                 )
+            )
 
-        # get world coordinate system
-        self.wcs = WCS(self.geom.to_header())
 
-        # camera coords to pixel
-        ff = interp1d(np.arange(-2,2, 0.0001), np.arange(1,40001,1), kind="linear", bounds_error=False, fill_value=-999)
+        df['Xderot'] = derot[:,0]
+        df['Yderot'] = derot[:,1]
 
-        # X is flipped lr
-        x = ff(-data["Xoff_derot"])
-        y = ff(data["Yoff_derot"])
+        # take Xderot and Yderot and convert it into RA and DEC for each event
 
-        # Get RA/Dec of each event
-        coords = self.wcs.pixel_to_world(x, y)
-        ra = np.array([r.deg for r in coords.ra])
-        dec = np.array([d.deg for d in coords.dec])
+        radec = list(
+            map(
+                slalib.sla_dtp2s, 
+                np.deg2rad(df.Xderot), 
+                np.deg2rad(df.Yderot),
+                np.repeat(np.deg2rad(self.pointing.ra.deg), len(df)),
+                np.repeat(np.deg2rad(self.pointing.dec.deg), len(df)),
+                )
+            )
+
+        df['RA'] = np.rad2deg([radec[0] for radec in radec])
+        df['DEC'] = np.rad2deg([radec[1] for radec in radec])
+
+        # convert RA and DEC of each event into elevation and azimuth
+
+
+        elaz = list(
+            map(
+                VSK.getHorizontalCoordinates, 
+                df.MJD, 
+                df.timeOfDay, 
+                df.DEC, 
+                df.RA
+                )
+            )
+
+
+        df['El'] = [elaz[0] for elaz in elaz]
+        df['Az'] = [elaz[1] for elaz in elaz]
+
+
+        # These are all the required coulmns we need for DL3 style output formatting
+        #df = pd.DataFrame(self.data_dict)
+
+        if self.simulation_data:
+            pass
+
+        else:
+            # convert Xoff_derot, Yoff_derot from current epoch into J2000 epoch
+            derot = np.array(
+                list(
+                    map(
+                        convert_derotatedCoordinates_to_J2000,
+                        getUTC(self.data_dict['MJD'], self.data_dict["timeOfDay"]),
+                        np.repeat(self.target.ra.deg, len(self.data_dict["Xoff_derot"])),
+                        np.repeat(self.target.dec.deg, len(self.data_dict["Xoff_derot"])), 
+                        self.data_dict['Xoff_derot'],
+                        self.data_dict['Yoff_derot']
+                    )
+                )
+            )
+
+            
+
+
+            self.data_dict['Xoff_derot'] = np.array(derot[:,0])
+            self.data_dict['Yoff_derot'] = np.array(derot[:,1])
+
+            # take Xderot and Yderot and convert it into RA and DEC for each event
+
+            radec = list(
+                map(
+                    slalib.sla_dtp2s, 
+                    np.deg2rad(self.data_dict['Xoff_derot']),
+                    np.deg2rad(self.data_dict['Yoff_derot']),
+                    np.repeat(np.deg2rad(self.pointing.ra.deg), len(self.data_dict["Xoff_derot"])),
+                    np.repeat(np.deg2rad(self.pointing.dec.deg), len(self.data_dict["Xoff_derot"])),
+                )
+            )
+
+            self.data_dict['RA'] = np.array(np.rad2deg([radec[0] for radec in radec]))
+            self.data_dict['DEC'] = np.array(np.rad2deg([radec[1] for radec in radec]))
+
+            # convert RA and DEC of each event into elevation and azimuth
+
+
+            elaz = list(
+                map(
+                    getHorizontalCoordinates,
+                    self.data_dict['MJD'],
+                    self.data_dict['timeOfDay'],
+                    self.data_dict['DEC'],
+                    self.data_dict['RA']
+                )
+            )
+
+
+            self.data_dict['El'] = np.array([elaz[0] for elaz in elaz])
+            self.data_dict['Az'] = np.array([elaz[1] for elaz in elaz])
+
+
+            # These are all the required coulmns we need for DL3 style output formatting
+  
         
+
         # Mask out failed events
         emask = data["ErecS"] >0
         # Store data to dictionary
@@ -112,6 +282,7 @@ class mscwReader():
         if "MCe0" in data.keys():
             self.data_dict["ENERGY_MC"] =  data["MCe0"][emask]
 
+        
 
     def extractSimulatedSpectrum(self,fname):
     
@@ -144,6 +315,7 @@ class mscwReader():
         return bins, counts, theta2, simulated
 
 
+    # Dummy to eventually write meta (run id, NSB, wobble, etc to a header)
     def getMetaData(self, fname):
         pass
 
