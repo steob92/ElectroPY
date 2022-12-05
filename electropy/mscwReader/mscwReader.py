@@ -90,29 +90,53 @@ class mscwReader():
 #        emask *= data["theta2"] <= 2. 
         # Store data to dictionary
  #       VTS_REFERENCE_MJD = 53402.0
+
+
+        # For stage 1 files get everything from the file
         self.data_dict = {
-                        "runNumber": data["runNumber"][emask],
+                        "runNumber" : data["runNumber"][emask],
                         "EVENT_ID" : data["eventNumber"][emask],
-                        "timeOfDay": data["Time"][emask],
-                        "MJD": data["MJD"][emask],
-                        "ENERGY" : data["ErecS"][emask],
-                        "dES" : data["dES"][emask],
+                        "MJD" : data["MJD"][emask],
+                        "Time" : data["Time"][emask],
+                        "TargetElev" : data["TargetElev"][emask],
+                        "TargetAz" : data["TargetAz"][emask],
+                        "TargetDec" : data["TargetDec"][emask],
+                        "TargetRA" : data["TargetRA"][emask],
+                        "WobbleN" : data["WobbleN"][emask],
+                        "WobbleE" : data["WobbleE"][emask],
+                        "LTrig" : data["LTrig"][emask],
+                        "NTrig" : data["NTrig"][emask],
                         "NImages" : data["NImages"][emask],
-                        "ImgSel": data["ImgSel"][emask],
-                        "MeanPedvar": data["meanPedvar_Image"][emask],
-                        "MSCW" : data["MSCW"][emask],
-                        "MSCL" : data["MSCL"][emask],
-                        "EmissionHeight" : data["EmissionHeight"][emask],
-                        "Xoff_derot": data["Xoff_derot"][emask],
-                        "Yoff_derot": data["Yoff_derot"][emask],
-                        "EChi2S" : data["EChi2S"][emask],
-                        "SizeSecondMax" : data["SizeSecondMax"][emask],
+                        "ImgSel" : data["ImgSel"][emask],
+                        "NTtype" : data["NTtype"][emask],
+                        "img2_ang" : data["img2_ang"][emask],
+                        "Ze" : data["Ze"][emask],
+                        "Az" : data["Az"][emask],
+                        "ra" : data["ra"][emask],
+                        "dec" : data["dec"][emask],
+                        "Xoff" : data["Xoff"][emask],
+                        "Yoff" : data["Yoff"][emask],
+                        "Xoff_derot" : data["Xoff_derot"][emask],
+                        "Yoff_derot" : data["Yoff_derot"][emask],
+                        "theta2" : data["theta2"][emask],
                         "XCore" : data["Xcore"][emask],
                         "YCore" : data["Ycore"][emask],
-                        "Core" : np.sqrt(data["Xcore"][emask]**2 + data["Ycore"][emask]**2),
-                        "Xoff" : data["Xoff"][emask],
-                        "Yoff": data["Yoff"][emask],
-                        "TIME": np.zeros(len(data["Yoff_derot"][emask])) # required colnames
+                        "MeanPedvar" : data["meanPedvar_Image"][emask],
+                        "NMSCW" : data["NMSCW"][emask],
+                        "MSCW" : data["MSCW"][emask],
+                        "MSCL" : data["MSCL"][emask],
+                        "MWR" : data["MWR"][emask],
+                        "MLR" : data["MLR"][emask],
+                        "ENERGY" : data["ErecS"][emask],
+                        "EChi2S" : data["EChi2S"][emask],
+                        "dES" : data["dES"][emask],
+                        "EmissionHeight" : data["EmissionHeight"][emask],
+                        "EmissionHeightChi2" : data["EmissionHeightChi2"][emask],
+                        "NTelPairs" : data["NTelPairs"][emask],
+                        "SizeSecondMax" : data["SizeSecondMax"][emask],
+                        "Core" : np.sqrt(data["Xcore"][emask]**2 + data["Ycore"][emask]**2 ),
+                        "TIME": np.zeros(len(data["Yoff_derot"][emask])), # required colnames
+                        "timeOfDay": data["Time"][emask]  # Needs to be converted to MET in "TIME" above
                     }
 
         # Adding MC entries
@@ -185,8 +209,19 @@ class mscwReader():
 
 
     def dataToPD(self):
-        return pd.DataFrame(self.data_dict)
 
+        df = pd.DataFrame(self.data_dict)
+
+        required_col = ['runNumber', 'EVENT_ID', 'timeOfDay', 'MJD', 'ENERGY',
+                        'dES','EChi2S','SizeSecondMax', 'XCore', 'YCore', 'Core', 'Xoff_derot', 'Yoff_derot', 'NImages',
+                        'ImgSel', 'MeanPedvar', 'MSCW', 'MSCL', 'RA',
+                        'DEC', 'Az', 'El', 'EmissionHeight', 'Xoff', 'Yoff', 'TIME']
+
+
+        # this is DL3 output file
+        DL3data = df[required_col]
+        DL3data.rename(columns = {'Xderot':'Xoff_derot', 'Yderot':'Yoff_derot'}, inplace = True)
+        return DL3data
         
 
     def extractSimulatedSpectrum(self,fname):
