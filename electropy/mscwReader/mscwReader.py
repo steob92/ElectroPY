@@ -205,10 +205,18 @@ class mscwReader():
 
         else:
             # convert Xoff_derot, Yoff_derot from current epoch into J2000 epoch
-            derot = np.array(list(map(convert_derotatedCoordinates_to_J2000, getUTC(self.data_dict['MJD'], self.data_dict["timeOfDay"]),
-                          np.repeat(self.target.ra.deg, len(self.data_dict["Xoff_derot"])),
-                          np.repeat(self.target.dec.deg, len(self.data_dict["Xoff_derot"])), 
-                                    self.data_dict['Xoff_derot'],self.data_dict['Yoff_derot'])))
+            derot = np.array(
+                list(
+                    map(
+                        convert_derotatedCoordinates_to_J2000,
+                        getUTC(self.data_dict['MJD'], self.data_dict["timeOfDay"]),
+                        np.repeat(self.target.ra.deg, len(self.data_dict["Xoff_derot"])),
+                        np.repeat(self.target.dec.deg, len(self.data_dict["Xoff_derot"])), 
+                        self.data_dict['Xoff_derot'],
+                        self.data_dict['Yoff_derot']
+                    )
+                )
+            )
 
             
 
@@ -218,10 +226,15 @@ class mscwReader():
 
             # take Xderot and Yderot and convert it into RA and DEC for each event
 
-            radec = list(map(slalib.sla_dtp2s, np.deg2rad(self.data_dict['Xoff_derot']), np.deg2rad(self.data_dict['Yoff_derot']),
-                             np.repeat(np.deg2rad(self.pointing.ra.deg), len(self.data_dict["Xoff_derot"])),
-                             np.repeat(np.deg2rad(self.pointing.dec.deg), len(self.data_dict["Xoff_derot"])),
-                             ))
+            radec = list(
+                map(
+                    slalib.sla_dtp2s, 
+                    np.deg2rad(self.data_dict['Xoff_derot']),
+                    np.deg2rad(self.data_dict['Yoff_derot']),
+                    np.repeat(np.deg2rad(self.pointing.ra.deg), len(self.data_dict["Xoff_derot"])),
+                    np.repeat(np.deg2rad(self.pointing.dec.deg), len(self.data_dict["Xoff_derot"])),
+                )
+            )
 
             self.data_dict['RA'] = np.array(np.rad2deg([radec[0] for radec in radec]))
             self.data_dict['DEC'] = np.array(np.rad2deg([radec[1] for radec in radec]))
@@ -229,7 +242,15 @@ class mscwReader():
             # convert RA and DEC of each event into elevation and azimuth
 
 
-            elaz = list(map(getHorizontalCoordinates, self.data_dict['MJD'], self.data_dict['timeOfDay'], self.data_dict['DEC'], self.data_dict['RA']))
+            elaz = list(
+                map(
+                    getHorizontalCoordinates,
+                    self.data_dict['MJD'],
+                    self.data_dict['timeOfDay'],
+                    self.data_dict['DEC'],
+                    self.data_dict['RA']
+                )
+            )
 
 
             self.data_dict['El'] = np.array([elaz[0] for elaz in elaz])
