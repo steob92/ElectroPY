@@ -1,12 +1,8 @@
-# import sys
-# sys.path.append('../utils/')
 import numpy as np
 from astropy.coordinates import SkyCoord
 import uproot
 import pandas as pd
 from pyslalib import slalib
-# from VSkyCoordinatesUtility import *
-# from electropy.utils.VSkyCoordinatesUtility import *
 # Make it a little easier to know where this is coming from
 from electropy.utils import VSkyCoordinatesUtility as VSK
 
@@ -18,9 +14,6 @@ from astropy.io import fits
 from astropy import units as u
 from astropy.wcs import WCS
 from scipy.interpolate import RegularGridInterpolator, interp1d
-
-# Needed?
-# from gammapy.maps import WcsNDMap, WcsGeom, MapAxis, RegionGeom, Map
 
 
 class mscwReader():
@@ -197,7 +190,6 @@ class mscwReader():
 
 
         # These are all the required coulmns we need for DL3 style output formatting
-        
         #df = pd.DataFrame(self.data_dict)
 
         if self.simulation_data:
@@ -261,7 +253,34 @@ class mscwReader():
   
         
 
+        # Mask out failed events
+        emask = data["ErecS"] >0
+        # Store data to dictionary
+        self.data_dict = {
+            "MSCW" : data["MSCW"][emask],
+            "MSCL" : data["MSCL"][emask],
+            "EmissionHeight" : data["EmissionHeight"][emask],
+            "EChi2S" : data["EChi2S"][emask],
+            "ENERGY" : data["ErecS"][emask], # required colnames 
+            "dES" : data["dES"][emask],
+            "SizeSecondMax" : data["SizeSecondMax"][emask],
+            "EVENT_ID" : data["eventNumber"][emask], # required colnames 
+            "RA" :  ra[emask], # required colnames 
+            "DEC" :  dec[emask], # required colnames 
+            "Xoff_derot" :  data["Xoff_derot"][emask], 
+            "Yoff_derot" :  data["Yoff_derot"][emask], 
+            "Xoff" :  data["Xoff"][emask], 
+            "Yoff" :  data["Yoff"][emask], 
+            "Xcore" :  data["Xcore"][emask], 
+            "Ycore" :  data["Ycore"][emask], 
+            "Core" : np.sqrt(data["Xcore"][emask]**2 + data["Ycore"][emask]**2),
+            "NImages" : data["NImages"][emask],
+            "TIME" : np.zeros(len(data["Yoff_derot"][emask])) # required colnames 
+        }
 
+        # Get the MC (true energy) for simulated data
+        if "MCe0" in data.keys():
+            self.data_dict["ENERGY_MC"] =  data["MCe0"][emask]
 
         
 

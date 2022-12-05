@@ -14,6 +14,7 @@ setup(
         'iminuit',
         'gammapy',
         'pyslalib'
+        'cmasher'
     ],
     include_package_data=True,
     )
