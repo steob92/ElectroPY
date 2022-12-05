@@ -12,7 +12,8 @@ setup(
         'uproot',
         'pandas',
         'iminuit',
-        'gammapy'
+        'gammapy',
+        'pyslalib'
     ],
     include_package_data=True,
     )
