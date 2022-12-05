@@ -1,16 +1,10 @@
-<<<<<<< HEAD
-from utils.VSkyCoordinatesUtility import *  
-=======
 # import sys
 # sys.path.append('../utils/')
->>>>>>> 3b63424 (Formatting changes for readability and fixing paths)
 import numpy as np
 from astropy.coordinates import SkyCoord
 import uproot
 import pandas as pd
 from pyslalib import slalib
-<<<<<<< HEAD
-=======
 # from VSkyCoordinatesUtility import *
 # from electropy.utils.VSkyCoordinatesUtility import *
 # Make it a little easier to know where this is coming from
@@ -18,7 +12,6 @@ from electropy.utils import VSkyCoordinatesUtility as VSK
 
 
 
->>>>>>> 3b63424 (Formatting changes for readability and fixing paths)
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from astropy.io import fits
@@ -149,11 +142,6 @@ class mscwReader():
             }
 
 
-<<<<<<< HEAD
-
-    def convertToDL3Format(self):
-
-=======
     # Name change needed Here we're just getting the RA/Dec
     def convertToDL3Format(self):
         df = pd.DataFrame(self.data_dict)
@@ -209,7 +197,6 @@ class mscwReader():
 
 
         # These are all the required coulmns we need for DL3 style output formatting
->>>>>>> 3b63424 (Formatting changes for readability and fixing paths)
         
         #df = pd.DataFrame(self.data_dict)
 
