@@ -1,9 +1,24 @@
+<<<<<<< HEAD
 from utils.VSkyCoordinatesUtility import *  
+=======
+# import sys
+# sys.path.append('../utils/')
+>>>>>>> 3b63424 (Formatting changes for readability and fixing paths)
 import numpy as np
 from astropy.coordinates import SkyCoord
 import uproot
 import pandas as pd
 from pyslalib import slalib
+<<<<<<< HEAD
+=======
+# from VSkyCoordinatesUtility import *
+# from electropy.utils.VSkyCoordinatesUtility import *
+# Make it a little easier to know where this is coming from
+from electropy.utils import VSkyCoordinatesUtility as VSK
+
+
+
+>>>>>>> 3b63424 (Formatting changes for readability and fixing paths)
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from astropy.io import fits
@@ -11,8 +26,8 @@ from astropy import units as u
 from astropy.wcs import WCS
 from scipy.interpolate import RegularGridInterpolator, interp1d
 
-
-from gammapy.maps import WcsNDMap, WcsGeom, MapAxis, RegionGeom, Map
+# Needed?
+# from gammapy.maps import WcsNDMap, WcsGeom, MapAxis, RegionGeom, Map
 
 
 class mscwReader():
@@ -54,6 +69,7 @@ class mscwReader():
 
             #self.tel_ra = np.median(pointingReduced["TelRAJ2000"])
             #self.tel_dec = np.median(pointingReduced["TelDecJ2000"])
+
         # Simulated data
         except Exception as e:
             # Give default RA/Dec
@@ -133,9 +149,67 @@ class mscwReader():
             }
 
 
+<<<<<<< HEAD
 
     def convertToDL3Format(self):
 
+=======
+    # Name change needed Here we're just getting the RA/Dec
+    def convertToDL3Format(self):
+        df = pd.DataFrame(self.data_dict)
+
+        # convert Xoff_derot, Yoff_derot from current epoch into J2000 epoch
+        derot = np.array(
+            list(
+                map(
+                    VSK.convert_derotatedCoordinates_to_J2000, 
+                    VSK.getUTC(df.MJD, df.timeOfDay),
+                    np.repeat(self.target.ra.deg, len(df)), 
+                    np.repeat(self.target.dec.deg, len(df)), 
+                    df['Xoff_derot'], df['Yoff_derot']
+                    )
+                )
+            )
+
+
+        df['Xderot'] = derot[:,0]
+        df['Yderot'] = derot[:,1]
+
+        # take Xderot and Yderot and convert it into RA and DEC for each event
+
+        radec = list(
+            map(
+                slalib.sla_dtp2s, 
+                np.deg2rad(df.Xderot), 
+                np.deg2rad(df.Yderot),
+                np.repeat(np.deg2rad(self.pointing.ra.deg), len(df)),
+                np.repeat(np.deg2rad(self.pointing.dec.deg), len(df)),
+                )
+            )
+
+        df['RA'] = np.rad2deg([radec[0] for radec in radec])
+        df['DEC'] = np.rad2deg([radec[1] for radec in radec])
+
+        # convert RA and DEC of each event into elevation and azimuth
+
+
+        elaz = list(
+            map(
+                VSK.getHorizontalCoordinates, 
+                df.MJD, 
+                df.timeOfDay, 
+                df.DEC, 
+                df.RA
+                )
+            )
+
+
+        df['El'] = [elaz[0] for elaz in elaz]
+        df['Az'] = [elaz[1] for elaz in elaz]
+
+
+        # These are all the required coulmns we need for DL3 style output formatting
+>>>>>>> 3b63424 (Formatting changes for readability and fixing paths)
         
         #df = pd.DataFrame(self.data_dict)
 
@@ -214,6 +288,7 @@ class mscwReader():
         return bins, counts, theta2, simulated
 
 
+    # Dummy to eventually write meta (run id, NSB, wobble, etc to a header)
     def getMetaData(self, fname):
         pass
 
