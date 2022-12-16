@@ -139,14 +139,21 @@ class mscwReader():
                         "timeOfDay": data["Time"][emask]  # Needs to be converted to MET in "TIME" above
                     }
 
+        # Adding some telescope level parameters
+        # Loss (fraction of shower outside of shower), size (2, the 2nd brightest pixels) and time gradient (the time gradient across the camera)
+        for i in range(4):
+            self.data_dict["loss_%d"%i] = data["loss"][:,i][emask]
+            self.data_dict["tgrad_x_%d"%i] = data["tgrad_x"][:,i][emask]
+            self.data_dict["size2_%d"%i] = data["size2"][:,i][emask]
+            
         # Adding MC entries
         if self.simulation_data:
-            data_dict["MCe0"] =  data["MCe0"][emask]
-            data_dict["El"] =  90-data["Ze"][emask]
-            data_dict["Az"] =  data["Az"][emask]
-            data_dict["RA"] =  np.zeros(len(data["Yoff_derot"][emask])) # we dont care about ra and dec
-            data_dict["DEC"] =  np.zeros(len(data["Yoff_derot"][emask])) 
-            data_dict["TIME"] =  np.zeros(len(data["Yoff_derot"][emask])) # required colnames 
+            self.data_dict["MCe0"] =  data["MCe0"][emask]
+            self.data_dict["El"] =  90-data["Ze"][emask]
+            self.data_dict["Az"] =  data["Az"][emask]
+            self.data_dict["RA"] =  np.zeros(len(data["Yoff_derot"][emask])) # we dont care about ra and dec
+            self.data_dict["DEC"] =  np.zeros(len(data["Yoff_derot"][emask])) 
+            self.data_dict["TIME"] =  np.zeros(len(data["Yoff_derot"][emask])) # required colnames 
         
 
 
