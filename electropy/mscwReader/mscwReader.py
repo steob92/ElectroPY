@@ -148,7 +148,7 @@ class mscwReader():
             
         # Adding MC entries
         if self.simulation_data:
-            self.data_dict["MCe0"] =  data["MCe0"][emask]
+            self.data_dict["ENERGY_MC"] =  data["MCe0"][emask]
             self.data_dict["El"] =  90-data["Ze"][emask]
             self.data_dict["Az"] =  data["Az"][emask]
             self.data_dict["RA"] =  np.zeros(len(data["Yoff_derot"][emask])) # we dont care about ra and dec
