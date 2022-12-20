@@ -1,0 +1,165 @@
+import numpy as np
+
+# Machine Learning Stuff
+## Preprocessing
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.model_selection import train_test_split
+
+## Models to test
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, StackingRegressor
+from xgboost.sklearn import XGBRegressor
+
+## Evaluating
+from sklearn.metrics import mean_absolute_error,mean_squared_error
+from sklearn.model_selection import GridSearchCV
+
+from electropy.training.Preprocessing import Preprocessor
+
+import logging 
+from joblib import dump, load
+
+
+class FeatureTuner(Preprocessor):
+
+    def __init__(self):
+        super().__init__()
+        self._n_jobs = 1
+        self.test_size = 0.33
+        self.setModel()
+
+    @property
+    def n_jobs(self):
+        return self._n_jobs
+    
+    @n_jobs.setter
+    def n_jobs(self, n_jobs):
+        self._n_jobs = n_jobs
+        # model needs to be updated once n_jobs is changed
+        self.model.n_jobs = self._n_jobs
+
+    def setModel(self, mtype = None):
+        
+        if mtype is not None:
+            self.modelName = mtype
+        elif "Model" in self.config:
+            self.modelName = self.config["Model"]
+        else :
+            self.modelName = "RandomForestRegressor"
+        self._makeModel()
+        
+    def _makeModel(self):
+        if self.modelName == "RandomForestRegressor":
+            self.model = RandomForestRegressor()
+        
+        elif self.modelName == "XGBRegressor":
+            self.model = XGBRegressor()
+        
+        # Default parameter for a RandomForrest/XGB Regressor
+        self.model.n_jobs = self._n_jobs
+        self.model.n_estimators=100
+        self.model.criterion='squared_error'
+        self.model.max_depth=None
+        self.model.min_samples_split=2
+        self.model.min_samples_leaf=5
+        self.model.min_weight_fraction_leaf=0.0
+        self.model.max_features='sqrt'
+
+
+    def fitModel(self, features):
+        # Extract features and values
+        y = self.df["ENERGY_MC"].values
+        x = self.df[features].values
+    
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = self.test_size)
+
+        x_train_scaled = self.scaler.fit_transform(x_train)
+        x_test_scaled = self.scaler.transform(x_test)
+
+        # Fit
+        self.model.fit(x_train_scaled, y_train)
+        # Score
+        score = self.model.score(x_test_scaled, y_test)
+
+        # Get Feature Importance
+        imp = self.model.feature_importances_
+
+        return score, imp            
+
+    def writeModel(self, fileName):
+        dump(self.model, fileName)
+        
+
+    def tuneFeatures(self, delta = 0.05, refit = False):
+
+        max_score = -1
+        new_score = -1
+        features_new = self.df.keys().drop("ENERGY_MC")
+
+        # Require at least 4 parameters
+        count_max = len(features_new) - 4
+
+        # Things to store
+        self.features_list = []
+        self.nfeatures_list = []
+        self.imp_list = []
+        self.score_list = []
+
+        # for i in range(count_max):
+        while len(features_new) > 4:
+
+            new_score, importance = self.fitModel(features_new)
+            asort = np.argsort(importance)[::-1]
+
+            self.features_list.append([ feat for feat in features_new[asort] ])
+            self.nfeatures_list.append(len(self.features_list[-1]))
+            self.imp_list.append([ imp for imp in importance[asort] ])
+            self.score_list.append(new_score)
+
+            if (new_score > max_score):
+                    logging.warning(f'New max found: {new_score:0.4f} (old: {max_score:0.4f})')
+                    max_score = new_score
+
+            for feat, impt in zip(features_new[asort], importance[asort]):
+                logging.debug(f"\t{feat}: {100*impt:0.2f}")
+        
+
+            if ( np.abs(max_score - new_score) < delta ) :
+                feat_tmp = features_new[asort][:-1]
+
+                # if any of the telescope wise parameters are removed then remove all of them
+                if ( "size2_" in features_new[asort][-1]):
+
+                    logging.warning("Removing telescope level size2 parameters")
+
+                    feat_mask = np.array([ True if "size2_" in feat  else False for feat in features_new ])
+                    feat_tmp = features_new[~feat_mask]
+
+                elif ( "tgrad_x_" in features_new[asort][-1]):
+
+                    logging.warning("Removing telescope level tgrad parameters")
+
+                    feat_mask = np.array([ True if "tgrad_x_" in feat  else False for feat in features_new ])
+                    feat_tmp = features_new[~feat_mask]
+
+                elif ( "loss_" in features_new[asort][-1]):
+
+                    logging.warning("Removing telescope level loss parameters")
+
+                    feat_mask = np.array([ True if "loss_" in feat  else False for feat in features_new ])
+                    feat_tmp = features_new[~feat_mask]
+
+                # Setting the new features for the next itteration
+                features_new = feat_tmp
+                logging.debug(f"Continuing... ({len(features_new)})")
+            else: 
+                logging.warning(f"Stopping...")
+                n_feat = len(self.features_list[-2])
+                logging.warning(f"{n_feat} Parameters to be used:")
+                ostr = ""
+                for i in range (n_feat):
+                    ostr += f"\n\t{self.features_list[-2][i]}"
+                logging.warning(f"{ostr}")
+                self.config["Features"] = self.features_list[-2]
+                break
+        if refit == True:
+            self.fitModel(self.config["Features"])
