@@ -266,7 +266,7 @@ class mscwReader():
     def getMetaData(self, fname):
         pass
 
-    def writeSimulatedData(self, fname, outname):
+    def writeSimulatedData(self, fname, outname, outdir = "./"):
         # Get the simulated spectrum
         bins, counts, theta2, simulated = self.extractSimulatedSpectrum(fname)
         # Get the event-wise data
@@ -289,7 +289,7 @@ class mscwReader():
         hdul[3].name = "THETA2"
         hdul[4].name = "SIMULATED"
         
-        hdul.writeto(outname, overwrite = True)
+        hdul.writeto(outdir + "/" + outname, overwrite = True)
 
 
     def writeFits(self, outname, ):
