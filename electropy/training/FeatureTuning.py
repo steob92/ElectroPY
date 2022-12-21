@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.model_selection import train_test_split
 
 ## Models to test
-from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, StackingRegressor
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, StackingRegressor, RandomForestClassifier
 from xgboost.sklearn import XGBRegressor
 
 ## Evaluating
@@ -17,7 +17,7 @@ from electropy.training.Preprocessing import Preprocessor
 
 import logging 
 from joblib import dump, load
-
+import yaml
 
 class FeatureTuner(Preprocessor):
 
@@ -26,6 +26,8 @@ class FeatureTuner(Preprocessor):
         self._n_jobs = 1
         self.test_size = 0.33
         self.setModel()
+        self.method = "energy"
+
 
     @property
     def n_jobs(self):
@@ -50,24 +52,48 @@ class FeatureTuner(Preprocessor):
     def _makeModel(self):
         if self.modelName == "RandomForestRegressor":
             self.model = RandomForestRegressor()
+            criterion = 'squared_error'
         
         elif self.modelName == "XGBRegressor":
             self.model = XGBRegressor()
+            criterion = 'squared_error'
         
+        elif self.modelName == "RandomForestClassifier":
+            self.model = RandomForestClassifier()
+            criterion = 'gini'
+
         # Default parameter for a RandomForrest/XGB Regressor
         self.model.n_jobs = self._n_jobs
         self.model.n_estimators=100
-        self.model.criterion='squared_error'
+        self.model.criterion=criterion
         self.model.max_depth=None
         self.model.min_samples_split=2
-        self.model.min_samples_leaf=5
+        self.model.min_samples_leaf=10
         self.model.min_weight_fraction_leaf=0.0
         self.model.max_features='sqrt'
 
 
+    def performEnergyEstimation(self, config_file, scaler, model):
+        # Load in what we need
+        with open(config_file, 'r') as inFile:
+            tmp_config = yaml.safe_load(inFile)
+        tmp_model = load(model)
+        tmp_scaler = load(scaler)
+
+        # Obtain the model prediction
+        self.df["ENERGY"] = tmp_model.predict(
+                tmp_scaler.transform(
+                    self.df[tmp_config["Features"]].values
+                )
+            )
+
     def fitModel(self, features):
         # Extract features and values
-        y = self.df["ENERGY_MC"].values
+        if self.method == "energy":
+            y = self.df["ENERGY_MC"].values
+        elif self.method == "classify":
+            y = self.df["label"].values
+
         x = self.df[features].values
     
         x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = self.test_size)
@@ -91,9 +117,20 @@ class FeatureTuner(Preprocessor):
 
     def tuneFeatures(self, delta = 0.05, refit = False):
 
+        # Check that we have multiple labels
+        if self.method == "classify":
+            if len(np.unique(self.df["label"])) < 2:
+                logging.error("Only one label type found, cannot run classifier")
+                return -1
+
         max_score = -1
         new_score = -1
-        features_new = self.df.keys().drop("ENERGY_MC")
+        if "Features" in self.config:
+            logging.warning("Initial features loaded from config file")
+            features_new = np.array(self.config["Features"])
+        else:
+            logging.warning("Initial features infered from data")
+            features_new = self.df.keys().drop(["ENERGY_MC", "label"])
 
         # Require at least 4 parameters
         count_max = len(features_new) - 4
@@ -104,6 +141,7 @@ class FeatureTuner(Preprocessor):
         self.imp_list = []
         self.score_list = []
 
+        converged = False
         # for i in range(count_max):
         while len(features_new) > 4:
 
@@ -159,7 +197,21 @@ class FeatureTuner(Preprocessor):
                 for i in range (n_feat):
                     ostr += f"\n\t{self.features_list[-2][i]}"
                 logging.warning(f"{ostr}")
+                self.config["Method"] = self.method
                 self.config["Features"] = self.features_list[-2]
+                converged = True
                 break
+        
+        if not converged:
+            logging.warning(f"Tuning didn't converge... Consider changing the tolerance (delta = {delta:0.2f}) ")
+            self.config["Features"] = self.features_list[-1]
+            n_feat = len(self.features_list[-1])
+            logging.warning(f"Reverting to last parameters...")
+            logging.warning(f"{n_feat} Parameters to be used:")
+            ostr = ""
+            for i in range (n_feat):
+                ostr += f"\n\t{self.features_list[-1][i]}"
+            logging.warning(f"{ostr}")
+            
         if refit == True:
             self.fitModel(self.config["Features"])

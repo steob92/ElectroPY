@@ -28,7 +28,8 @@ class Preprocessor():
 
     def __init__(self):
 
-        # Create a default scaler and config file 
+        # Create a default scaler and config file
+        self.df = None 
         self.setScaler()
         self.makeConfig()
 
@@ -62,7 +63,8 @@ class Preprocessor():
 
 
 
-    def readData(self, fileName = None):
+    # readData should be internal to allow for labeling event types
+    def _readData(self, fileName = None):
 
         # Check if a file name is passed
         if fileName == None:
@@ -73,7 +75,17 @@ class Preprocessor():
         with fits.open(self.config["FileName"]) as hdul:
             df = Table.read(hdul[self.config["Table"]]).to_pandas()
 
-        self.df = self.cleanData(df)
+        return self.cleanData(df)
+
+    def addData(self, fileName = None, label = 0):
+        df = self._readData(fileName)
+        df['label'] = label
+
+        if self.df is None:
+            self.df = df
+        else :
+            self.df = pd.concat([self.df, df])
+
 
     def cleanData(self, df, config=None):
         if config == None:
