@@ -41,6 +41,9 @@ class IRFMaker():
     def loadScalar(self, fname):
         self.scalar = load(fname)
 
+    def loadEnergyEstimator(self, fname):
+        self.energyEstimator = load(fname)
+
     def loadClassifier(self, fname):
         self.classifier = load(fname)
 
@@ -278,3 +281,16 @@ class IRFMaker():
             fname += ".joblib"
         # Might as well keep using joblib
         dump(self.eventData, fname)
+
+
+'''
+    Handle IRF I/O and interpolation
+'''
+class IRFHandler():
+
+    def __init__(self):
+        pass
+    
+
+    def readIRFFiles(self, filename):
+        pass
