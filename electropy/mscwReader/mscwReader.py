@@ -314,6 +314,7 @@ class mscwReader():
 
         # Get the event-wise data
         self.loadData(fname)
+        self.calculateRADec()
 
         phdu = fits.PrimaryHDU()
         tabData = fits.BinTableHDU(Table(self.dataDict))
@@ -322,7 +323,7 @@ class mscwReader():
         hdul = fits.HDUList(tabs)
 
         # Add some useful headers
-        hdul[0].header["RUNNUM"] = (self.dataDict["runNumber"], "VERITAS Run Number") 
+        hdul[0].header["RUNNUM"] = (self.dataDict["runNumber"][0], "VERITAS Run Number") 
         hdul[0].header["MJD"] = (np.mean(self.dataDict["MJD"]), "MJD of run") 
         hdul[0].header["PEDVAR"] = (np.mean(self.metaData["MeanPedvar"]), "Mean PedVar")
         hdul[0].header["EL"] = (circmean(self.metaData['El']*u.deg).value, "Mean Elevation")
