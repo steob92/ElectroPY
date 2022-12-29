@@ -13,7 +13,7 @@ setup(
         'pandas',
         'iminuit',
         'gammapy',
-        'pyslalib',
+        # 'pyslalib',
         'cmasher'
     ],
     include_package_data=True,
