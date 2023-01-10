@@ -64,7 +64,7 @@ class Preprocessor():
 
 
     # readData should be internal to allow for labeling event types
-    def _readData(self, fileName = None):
+    def _readData(self, fileName = None, label = 0):
 
         # Check if a file name is passed
         if fileName == None:
@@ -75,12 +75,21 @@ class Preprocessor():
         with fits.open(self.config["FileName"]) as hdul:
             df = Table.read(hdul[self.config["Table"]]).to_pandas()
 
+        # Label the datasets used in the config file
+        if f"data_{label}_0" not in self.config:
+            self.config[f"data_{label}_0"] = fileName
+        else :
+            keys = self.config.keys()
+            # Get the last entry and increment by 1
+            ent = np.array([ int(key.split("_")[-1]) for key in keys if f"data_{label}" in key])
+            dataset = ent[np.argsort(ent)][-1] +1
+            self.config[f"data_{label}_{dataset}"] = fileName
+
         return self.cleanData(df)
 
     def addData(self, fileName = None, label = 0):
-        df = self._readData(fileName)
+        df = self._readData(fileName, label)
         df['label'] = label
-
         if self.df is None:
             self.df = df
         else :
