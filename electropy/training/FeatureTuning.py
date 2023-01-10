@@ -10,7 +10,7 @@ from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, S
 from xgboost.sklearn import XGBRegressor
 
 ## Evaluating
-from sklearn.metrics import mean_absolute_error,mean_squared_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error, precision_score, precision_recall_fscore_support
 from sklearn.model_selection import GridSearchCV
 
 from electropy.training.Preprocessing import Preprocessor
@@ -65,6 +65,7 @@ class FeatureTuner(Preprocessor):
         # Default parameter for a RandomForrest/XGB Regressor
         self.model.n_jobs = self._n_jobs
         self.model.n_estimators=100
+        # self.model.n_estimators=10
         self.model.criterion=criterion
         self.model.max_depth=None
         self.model.min_samples_split=2
@@ -105,11 +106,24 @@ class FeatureTuner(Preprocessor):
         self.model.fit(x_train_scaled, y_train)
         # Score
         score = self.model.score(x_test_scaled, y_test)
+        # Percision
+        pre = 0
+        if self.method == "classify":
+            # Check the precision of classifying electrons
+            # ToDo: Code in alternative optimization methods
+            y_pred = self.model.predict(x_test_scaled)
+            ele_mask = y_pred == 0
+            
+            pre = precision_recall_fscore_support(
+                    y_test, 
+                    y_pred,
+                    pos_label = 0,
+                    average = "binary")
 
         # Get Feature Importance
         imp = self.model.feature_importances_
 
-        return score, imp            
+        return score, imp, pre       
 
     def writeModel(self, fileName):
         dump(self.model, fileName)
@@ -145,8 +159,13 @@ class FeatureTuner(Preprocessor):
         # for i in range(count_max):
         while len(features_new) > 4:
 
-            new_score, importance = self.fitModel(features_new)
+            new_score, importance, prec = self.fitModel(features_new)
             asort = np.argsort(importance)[::-1]
+            
+            # For classifier use precission instead of f-score 
+            if self.method == "classify":
+                print (prec)
+                new_score = prec[0]
 
             self.features_list.append([ feat for feat in features_new[asort] ])
             self.nfeatures_list.append(len(self.features_list[-1]))
@@ -188,7 +207,7 @@ class FeatureTuner(Preprocessor):
 
                 # Setting the new features for the next itteration
                 features_new = feat_tmp
-                logging.debug(f"Continuing... ({len(features_new)})")
+                logging.debug(f"Continuing... ({new_score:0.2f}, {len(features_new)})")
             else: 
                 logging.warning(f"Stopping...")
                 n_feat = len(self.features_list[-2])
