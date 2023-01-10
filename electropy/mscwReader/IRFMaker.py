@@ -7,6 +7,7 @@ from astropy.table import Table
 from astropy.io import fits
 
 from joblib import dump, load
+import yaml
 
 try:
     import cmasher as cms
@@ -26,10 +27,11 @@ class IRFMaker():
         # Cut on the probability
         self.prob_cut = 0.5
         
-        # Scalar, classifier and features of interest
-        self.scalar = None
-        self.classifier = None
-        self.features = None
+        # Scaler, classifier and features of interest
+        # self.scaler = None
+        # self.classifier = None
+        # self.featuresClass = None
+        # self.featuresEnergy = None
         self.log_feat = None
 
 
@@ -37,21 +39,59 @@ class IRFMaker():
         self._rThrow = 750 # m
         self._aThrow = np.pi * self._rThrow**2   # m^2  
 
+        # meta data for output
+        self.metaData = {}
 
-    def loadScalar(self, fname):
-        self.scalar = load(fname)
+    def loadConfig(self, fname):
+        with open(fname, "r") as f:
+            self.config = yaml.safe_load(f)
 
-    def loadEnergyEstimator(self, fname):
-        self.energyEstimator = load(fname)
+        # Load in the classifier and scalers
+        self.loadEnergyScaler()
+        self.loadClassScaler()
+        self.loadEnergyEstimator()
+        self.loadClassifier()
+        self.log_feat = self.config["LogFeat"]
+        
 
-    def loadClassifier(self, fname):
-        self.classifier = load(fname)
+    def loadEnergyScaler(self, fname = None):
+        # Load in the energy scaler and extract the features
+        if fname is None:
+            self.scalerEnergy = load(self.config["EnergyScaler"])
+            self.featuresEnergy = self.config["FeaturesEnergy"]
+        else:
+            self.scalerEnergy = load(fname)
 
-    def loadFeatures(self, fname):
-        feat = load(fname)
-        self.features = feat["Features"]
-        self.log_feat = feat["Log Features"]
 
+    def loadClassScaler(self, fname = None):
+        # Load in the classifier scaler and extract the features
+        if fname is None:
+            self.scalerClass = load(self.config["ClassifierScaler"])
+            self.featuresClass = self.config["FeaturesClassifier"]
+        else:
+            self.scalerClass = load(fname)
+
+    def loadEnergyEstimator(self, fname = None):
+        # Load in the energy estimator
+        if fname is None:
+            self.energyEstimator = load(self.config["Energy"])
+        else:
+            self.energyEstimator = load(fname)
+        
+
+    def loadClassifier(self, fname = None):
+        # Load in the Classifier
+        if fname is None:
+            self.classifier = load(self.config["Classifier"])
+        else:
+            self.classifier = load(fname)
+
+    # def loadFeatures(self, fname):
+    #     feat = load(fname)
+    #     self.featuresClass = feat["FeaturesClass"]
+    #     if "FeaturesEnergy" in feat:
+    #         self.featuresEnergy = feat["FeaturesEnergy"]
+    #     self.log_feat = feat["Log Features"]
 
 
     def readData(self, fname):
@@ -59,6 +99,7 @@ class IRFMaker():
         # Open the fits files
         with fits.open(fname) as hdul:
 
+            self.metaData = hdul[0].header
             # Convert event-wise data to a dataframe
             df = Table.read(hdul[1]).to_pandas()
 
@@ -92,15 +133,23 @@ class IRFMaker():
             "theta2_binning_cen": theta2binc
         }
 
+    def estimateEnergy(self):
+        x = self.eventData["data"][self.featuresEnergy].values
+        x_scaled = self.scalerEnergy.transform(x)
+        prediction = self.energyEstimator.predict(x_scaled)
+
+        self.eventData["data"]["ENERGY"] = prediction
+
+
 
     def classifyEventData(self, eventClass = None):
 
         if eventClass is None:
             eventClass = self.eventClass
         
-        # Extract features and apply scalar transform
-        x = self.eventData["data"][self.features].values
-        x_scaled = self.scalar.transform(x)
+        # Extract features and apply Scaler transform
+        x = self.eventData["data"][self.featuresClass].values
+        x_scaled = self.scalerClass.transform(x)
 
         prediction = self.classifier.predict_proba(x_scaled)[:,eventClass] # Here we're only taking the electron probability
         self.eventData["data"]["Prob"] = prediction
@@ -277,10 +326,31 @@ class IRFMaker():
 
 
     def writeToFile(self, fname):
-        if "joblib" not in fname:
-            fname += ".joblib"
-        # Might as well keep using joblib
-        dump(self.eventData, fname)
+        # if "joblib" not in fname:
+        #     fname += ".joblib"
+        # # Might as well keep using joblib
+        # dump(self.eventData, fname)
+        drop_keys = ["data"]
+        tab_keys = [ 'energy_binning', 'theta2_binning', 
+                     'energy_binning_cen', 'theta2_binning_cen', 
+                      'energy_response_ebins']
+        save_keys = [key for key in self.eventData.keys() if key not in drop_keys ]
+        phdu = fits.PrimaryHDU()
+        hduls = [phdu]
+        for k in save_keys:
+            # if k in tab_keys:
+                # hduls.append(fits.BinTableHDU(Table({}))
+            # else:
+            hduls.append(fits.ImageHDU(self.eventData[k]))
+
+        hdul_list = fits.HDUList(hduls)
+        for i, k in enumerate(save_keys):
+            hdul_list[i+1].name = k
+
+        for k in self.metaData.keys():
+            hdul_list[0].header[k] = self.metaData[k]
+        hdul_list.writeto( fname, overwrite=True)
+
 
 
 '''
