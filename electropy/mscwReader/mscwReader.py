@@ -80,6 +80,18 @@ class mscwReader():
             self.tel_ra = 0
             self.tel_dec = 0
             self.pointing = SkyCoord(self.tel_ra, self.tel_dec, unit='deg', frame='icrs')
+            # Extract some simulation meta data
+            mcHead = dataFile["MC_runheader"].members
+            self.metaData["ELMIN"] = (np.rad2deg(mcHead["alt_range"][0]), "Minimum Elevation Angle")
+            self.metaData["ELMAX"] = (np.rad2deg(mcHead["alt_range"][1]), "Maximum Elevation Angle")
+            self.metaData["EL"] = (np.mean(np.rad2deg(mcHead["alt_range"])), "Mean Elevation Angle")
+            self.metaData["AZMIN"] = (np.rad2deg(mcHead["az_range"][0]), "Minimum Azimuth Angle")
+            self.metaData["AZMAX"] = (np.rad2deg(mcHead["az_range"][1]), "Maximum Azimuth Angle")
+            self.metaData["PRIMARY"] = (mcHead["primary_id"], "Primary Particle ID") 
+            self.metaData["EMIN"] = (mcHead["E_range"][0], "Minimum Energy")
+            self.metaData["EMAX"] = (mcHead["E_range"][1], "Maximum Energy")
+            self.metaData["INDEX"] = (mcHead["spectral_index"], "Spectral Index")
+            
 
         # Close the file to help with memory
         dataFile.close()
@@ -307,6 +319,9 @@ class mscwReader():
         hdul[2].name = "EBIN"
         hdul[3].name = "THETA2"
         hdul[4].name = "SIMULATED"
+
+        for k in self.metaData.keys():
+            hdul[0].header[k] = self.metaData[k]
         
         hdul.writeto(outdir + "/" + outname, overwrite = True)
 
