@@ -17,4 +17,5 @@ setup(
         'cmasher'
     ],
     include_package_data=True,
+    package_data={'electropy': ['utils/*.fits']},
     )
