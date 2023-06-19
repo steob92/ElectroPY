@@ -63,6 +63,9 @@ class mscwReader():
                     runpara = dataFile["evndispLog"]
                     # Loop over log and grab the RA/Dec from the DB details
                     for line in runpara.all_members["fLines"]:
+                        if "Duration" in line:
+                            self.metaData["Duration"] = float(line.split()[5])
+
                         if ("J2000" in line) and ("RA" in line):
                             target = line.split()
                             ra = target[1].split("=")[1]
@@ -281,7 +284,7 @@ class mscwReader():
         counts, bins = h1.to_numpy()
         
         # Get the theta2 binning (simulated up to 5 degrees)
-        rbw = 0.5
+        rbw = 0.25
         theta2 = np.arange(0, 25 + rbw, rbw)
         theta2c = theta2[:-1] + 0.5*rbw
 
@@ -344,6 +347,7 @@ class mscwReader():
         hdul[0].header["EL"] = (circmean(self.metaData['El']*u.deg).value, "Mean Elevation")
         hdul[0].header["Az"] = (circmean(self.metaData['Az']*u.deg).value, "Mean Azimuth")
         hdul[0].header["DEADTIME"] = (self.metaData["DeadTime"], "Fractional Deadtime")
+        hdul[0].header["DURATION"] = (self.metaData["Duration"], "Duration (s)")
         hdul[1].name = "MSCW"
         hdul.writeto(outdir + "/" + outname, overwrite = True)
 
