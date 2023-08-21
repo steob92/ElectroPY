@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
 
 from astropy import units as u
 from astropy.table import Table
@@ -8,6 +9,10 @@ from astropy.io import fits
 
 from joblib import dump, load
 import yaml
+
+from gammapy.irf.psf import PSF3D
+from gammapy.irf import EnergyDispersion2D, EffectiveAreaTable2D
+
 
 try:
     import cmasher as cms
@@ -138,7 +143,9 @@ class IRFMaker():
         x_scaled = self.scalerEnergy.transform(x)
         prediction = self.energyEstimator.predict(x_scaled)
 
-        self.eventData["data"]["ENERGY"] = prediction
+        self.eventData["data"]["ENERGY_LUT"] = np.log10(self.eventData["data"]["ENERGY"])
+        self.eventData["data"]["ENERGY_RF"] = prediction
+        self.eventData["data"]["ENERGY"] = self.eventData["data"]["ENERGY_RF"] 
 
 
 
@@ -171,6 +178,13 @@ class IRFMaker():
         # Calculated effective areas
         eff = self._aThrow * self.eventData["reconstructed_spectrum"] / self.eventData["simulated_spectrum"]
         eff[np.isnan(eff)] = 0 # Set 0/0 = 0
+
+        # Calculate the solid angle
+        offsetAngle = np.sqrt(self.eventData["theta2_binning_cen"])
+        offsetBinWidth = np.sqrt(np.diff(self.eventData["theta2_binning"]))
+        solidAngle = 2 * np.pi * offsetAngle * offsetBinWidth
+
+        # self.eventData["effective_area"] = eff  * solidAngle[:, None]
         self.eventData["effective_area"] = eff
 
 
@@ -256,41 +270,51 @@ class IRFMaker():
 
 
 
-        # Define energy binning
-        # Use the same binning for MC and Rec
-        ebins = np.linspace(-2,2, 41)
-        ebinsW = ebins[1:] - ebins[:-1]
-        ebinsC = ebins[:-1] + 0.5 * ebinsW
+        # Define binning
+        eng_bins = 10**np.arange(-1,2, 0.05)
+        migra_bins = np.linspace(0.2,5, 20)
+        wob_bins = np.linspace(0,5, 6)
 
-
-        passingEvents = self.eventData["data"][self.eventData["data"]["Prob"]>prob]
-
+        # Energy Dispersion
         energyResponse = np.zeros(
             (
-                self.eventData["theta2_binning_cen"].shape[0],
-                ebinsC.shape[0],
-                ebinsC.shape[0]
+                wob_bins.shape[0]-1,
+                migra_bins.shape[0]-1,
+                eng_bins.shape[0]-1,
             )
         )
 
+        passingEvents = self.eventData["data"][self.eventData["data"]["Prob"]>prob]
+
+
+
         for i in range(energyResponse.shape[0]):
 
+            # Create the wobble mask
+            wob_mask =   ( np.sqrt(passingEvents["Theta2"]) > wob_bins[i]) &\
+                    ( np.sqrt(passingEvents["Theta2"]) < wob_bins[i+1])
 
-            wob_mask = (passingEvents["Theta2"] > self.eventData["theta2_binning"][i]) & (passingEvents["Theta2"] <= self.eventData["theta2_binning"][i+1])
-            energyResponse[i], _, _ = np.histogram2d(
-                                            passingEvents["ENERGY_MC"][wob_mask],
-                                            passingEvents["ENERGY"][wob_mask],
-                                            bins = [ebins, ebins]
-                )
-            energyResponse[i] += 1e-9 # Remove 0/0
-            # Normalize
+            # wob_mask = (passingEvents["Theta2"] > self.eventData["theta2_binning"][i]) & (passingEvents["Theta2"] <= self.eventData["theta2_binning"][i+1])
+            
             for j in range(energyResponse.shape[2]):
-                energyResponse[i,:,j] /= np.sum(energyResponse[i,:,j])
 
+                    eng_mask = (passingEvents["ENERGY_MC"] > np.log10(eng_bins[j])) & \
+                               (passingEvents["ENERGY_MC"] < np.log10(eng_bins[j+1])) 
 
+                    energyResponse[i,:,j], _ = np.histogram(
+                        10**passingEvents["ENERGY_LUT"][eng_mask & wob_mask] / \
+                        10**passingEvents["ENERGY_MC"][eng_mask & wob_mask],
+                        bins = migra_bins
+                    )
+                    
+                    energyResponse[i] += 1e-9 # Remove 0/0
+                    energyResponse[i,:,j] /= np.sum(energyResponse[i,:,j])
+            
 
         self.eventData["energy_response"] = energyResponse
-        self.eventData["energy_response_ebins"] = ebins
+        self.eventData["energy_response_ebins"] = eng_bins
+        self.eventData["energy_response_migra"] = migra_bins
+        self.eventData["energy_response_theta"] = wob_bins
 
 
 
@@ -325,6 +349,71 @@ class IRFMaker():
 
 
 
+    # Getting the spatial dispersion
+    def makeSpatialDispersion(self, prob = None):
+
+        if prob is None:
+            prob = self.prob_cut
+
+
+        passingEvents = self.eventData["data"][self.eventData["data"]["Prob"]>prob]
+
+        # Define the energy range
+        ebins = np.logspace(-1,1,16)
+        ebins_c = 10**(np.log10(ebins[:-1])  + 0.5*(np.log10(ebins[1:]) - np.log10(ebins[:-1])))
+
+        # Wobble angles 
+        wob_bins = np.arange(0, 2, 0.1)
+
+        # Prob range
+        rad_bins = np.linspace(0,2,15)
+
+        rad_binsC = rad_bins[:-1] + 0.5 *(rad_bins[1:] - rad_bins[:-1])
+        rad_bins_data = np.linspace(0,2, 50)
+        rad_bins_dataC = rad_bins_data[:-1] + 0.5 *(rad_bins_data[1:] - rad_bins_data[:-1])
+
+        # PSF Data
+        # Shape rad, wob, eng
+        r_data = np.zeros(
+            (
+                len(rad_bins_data)-1, 
+                len(wob_bins)-1, 
+                len(ebins)-1
+            )
+        )
+        for i in range(r_data.shape[1]):
+            
+            # Get the wobble mask
+            wob_mask =   ( passingEvents["MCTheta"] > wob_bins[i]) &\
+                        ( passingEvents["MCTheta"] < wob_bins[i+1])
+            for j in range(r_data.shape[2]):
+                    
+                    eng_mask = ( passingEvents["ENERGY_MC"] > np.log10(ebins[j]) ) &\
+                            ( passingEvents["ENERGY_MC"] < np.log10(ebins[j+1]) )
+                    
+                    
+                    
+                    counts, _ = np.histogram(
+                        passingEvents["MCTheta"][wob_mask & eng_mask] -\
+                        passingEvents["Theta"][wob_mask & eng_mask],
+                        bins = rad_bins
+                    )
+                    inter = interp1d(rad_binsC, 
+                                    counts, 
+                                    fill_value="extrapolate",
+                                    bounds_error=False, kind="quadratic")
+                    r_data[:,i,j] = inter(rad_bins_dataC)
+                    r_data[:,i,j][r_data[:,i,j]< 0] = 0 
+        #             print (np.sum(r_data[:,i,j]))
+        #             r_data[:,i,j] /= np.sum(r_data[:,i,j])
+                    
+                    r_data[:,i,j] *= 10000    # I don't know either...
+
+        self.eventData["spatial_response"] = r_data
+        self.eventData["spatial_response_ebins"] = ebins
+        self.eventData["spatial_response_rad"] = rad_bins_data
+        self.eventData["spatial_response_theta"] = wob_bins
+
     def writeToFile(self, fname):
         # if "joblib" not in fname:
         #     fname += ".joblib"
@@ -351,6 +440,85 @@ class IRFMaker():
             hdul_list[0].header[k] = self.metaData[k]
         hdul_list.writeto( fname, overwrite=True)
 
+
+
+    def writeGammapyIRFs(self, fname, prob = None):
+        
+
+        if prob is None:
+            prob = self.prob_cut
+
+        # Check if the effective areas have been calculated
+        if "effective_area" not in self.eventData.keys():
+            self.makeEffectiveAreas(prob)
+
+        # self.eventData["energy_response"] = energyResponse
+        # self.eventData["energy_response_ebins"] = eng_bins
+        # self.eventData["energy_response_migra"] = migra_bins
+        # self.eventData["energy_response_theta"] = wob_bins
+
+        tab = Table(
+            {
+                "ENERG_LO" : [10**self.eventData["energy_binning"][:-1] ]* u.TeV,
+                "ENERG_HI" : [10**self.eventData["energy_binning"][1:] ]* u.TeV,
+                "THETA_LO" : [np.sqrt(self.eventData["theta2_binning"])[:-1]]* u.deg,
+                "THETA_HI" : [np.sqrt(self.eventData["theta2_binning"])[1:]]* u.deg,
+                "EFFAREA" : [self.eventData["effective_area"]] / u.m / u.m
+            }
+        )
+        aeff = EffectiveAreaTable2D.from_table(tab)
+
+        # self.eventData["spatial_response"] = r_data
+        # self.eventData["spatial_response_ebins"] = eng_bins
+        # self.eventData["spatial_response_rad"] = rad_bins
+        # self.eventData["spatial_response_theta"] = wob_bins
+
+
+        if "spatial_response" not in self.eventData.keys():
+            self.makeSpatialDispersion(prob)
+
+        print ("Spatial Response: " ,self.eventData["spatial_response"].shape)
+        print ("Spatial Response ebins: " ,self.eventData["spatial_response_ebins"].shape)
+        print ("Spatial Response theta: " ,self.eventData["spatial_response_theta"].shape)
+        print ("Spatial Response rad: " ,self.eventData["spatial_response_rad"].shape)
+        tab = Table(
+            {
+                "ENERG_LO" : [self.eventData["spatial_response_ebins"][:-1] ]* u.TeV,
+                "ENERG_HI" : [self.eventData["spatial_response_ebins"][1:] ]* u.TeV,
+                "THETA_LO" : [self.eventData["spatial_response_theta"][:-1] ]* u.deg,
+                "THETA_HI" : [self.eventData["spatial_response_theta"][1:] ]* u.deg,
+                "RAD_LO" : [self.eventData["spatial_response_rad"][:-1]] *u.deg,
+                "RAD_HI" : [self.eventData["spatial_response_rad"][1:]] *u.deg,
+                "RPSF" : [self.eventData["spatial_response"]] / u.sr
+            }
+        )
+
+        psf = PSF3D.from_table(tab)
+
+        # self.eventData["energy_response"] = energyResponse
+        # self.eventData["energy_response_ebins"] = eng_bins
+        # self.eventData["energy_response_migra"] = migra_bins
+        # self.eventData["energy_response_theta"] = wob_bins
+
+        if "energy_response" not in self.eventData.keys():
+            self.makeEnergyResponse(prob)
+
+        tab = Table(
+            {
+                "ENERG_LO" : [self.eventData["energy_response_ebins"][:-1] ]* u.TeV,
+                "ENERG_HI" : [self.eventData["energy_response_ebins"][1:] ]* u.TeV,
+                "MIGRA_LO" : [self.eventData["energy_response_migra"][:-1]],
+                "MIGRA_HI" : [self.eventData["energy_response_migra"][1:]],
+                "THETA_LO" : [self.eventData["energy_response_theta"][:-1] ]* u.deg,
+                "THETA_HI" : [self.eventData["energy_response_theta"][1:] ]* u.deg,
+                "MATRIX" : [self.eventData["energy_response"]]
+            }
+        )
+        edisp = EnergyDispersion2D.from_table(tab)
+
+
+        hdul = fits.HDUList(aeff.to_hdulist() + edisp.to_hdulist()[1:] + psf.to_hdulist()[1:])
+        hdul.writeto( fname, overwrite=True)
 
 
 '''

@@ -138,6 +138,7 @@ class mscwReader():
                         "Yoff" : data["Yoff"][emask],
                         "Xoff_derot" : data["Xoff_derot"][emask],
                         "Yoff_derot" : data["Yoff_derot"][emask],
+                        "Theta" : np.sqrt(data["Xoff"][emask]**2 + data["Xoff"][emask]**2),
                         "theta2" : data["theta2"][emask],
                         "XCore" : data["Xcore"][emask],
                         "YCore" : data["Ycore"][emask],
@@ -169,6 +170,9 @@ class mscwReader():
         # Adding MC entries
         if self.simulationData:
             self.dataDict["ENERGY_MC"] =  data["MCe0"][emask]
+            self.dataDict["MCxoff"] =  data["MCxoff"][emask]
+            self.dataDict["MCyoff"] =  data["MCyoff"][emask]
+            self.dataDict["MCTheta"] =  np.sqrt(data["MCxoff"][emask]**2 + data["MCyoff"][emask]**2)
             self.dataDict["El"] =  90-data["Ze"][emask]
             self.dataDict["Az"] =  data["Az"][emask]
             self.dataDict["RA"] =  np.zeros(len(data["Yoff_derot"][emask])) # we dont care about ra and dec
