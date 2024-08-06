@@ -3,17 +3,30 @@ from astropy.io import fits
 from astropy.table import Table
 # from astropy import units as u
 from pathlib import Path
+from typing import List
 
 class Archive():
+    """Class for reading in archival spectra
+    
+    """
+    
+    # Archival spectrum files
+    _archiveFiles : List[str] = ["electron_data.fits", "proton_data.fits"]
+        
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initialization of class
+
+        Reads the archival files into memory
+        """
         # List of archived datasets
-        self._archiveFiles = ["electron_data.fits", "proton_data.fits"]
         self.readArchive()
         
 
-    def readArchive(self):
-
+    def readArchive(self) -> None:
+        """Read in the archival spectral files
+        
+        """
         self.data = {}
         path = Path(__file__)
 
@@ -29,7 +42,15 @@ class Archive():
                     self.data[part][name] = tab
     
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """String formatter for class
+
+        Returns
+        -------
+        str
+            String summary of available data
+
+        """
         ret = ""
         for part in self.data:
             ret+= f'Particle type: {part}\n'

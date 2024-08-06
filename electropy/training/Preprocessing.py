@@ -30,41 +30,41 @@ class Preprocessor():
 
         # Create a default scaler and config file
         self.df = None 
-        self.setScaler()
-        self.makeConfig()
+        self.set_scaler()
+        self.make_config()
 
 
-    def setScaler(self, type = "std"):
+    def set_scaler(self, type = "std"):
         if type.lower() == "std":
             self.scaler = StandardScaler()
         elif type.lower() == "minmax":
             self.scaler = MinMaxScaler()
 
-    def loadScaler(self, fileName):
+    def load_scaler(self, fileName):
         self.scaler = load(fileName)
 
-    def writeScaler(self, fileName):
+    def write_scaler(self, fileName):
         dump(self.scaler, fileName)
 
     # Make a new config from a template
-    def makeConfig(self):
+    def make_config(self):
         self.config = yaml.safe_load(configTemplate)
 
 
     # Loading in a new config file
-    def loadConfig(self, fileName):
+    def load_config(self, fileName):
         with open(fileName, 'r') as inFile:
             self.config = yaml.safe_load(inFile)
 
     # Writing the config file
-    def writeConfig(self, fileName):
+    def write_config(self, fileName):
         with open(fileName, "w") as outFile:
             yaml.dump(self.config, outFile, default_flow_style=False)
 
 
 
-    # readData should be internal to allow for labeling event types
-    def _readData(self, fileName = None, label = 0):
+    # read_data should be internal to allow for labeling event types
+    def _read_data(self, fileName = None, label = 0):
 
         # Check if a file name is passed
         if fileName == None:
@@ -85,10 +85,10 @@ class Preprocessor():
             dataset = ent[np.argsort(ent)][-1] +1
             self.config[f"data_{label}_{dataset}"] = fileName
 
-        return self.cleanData(df)
+        return self.clean_data(df)
 
-    def addData(self, fileName = None, label = 0):
-        df = self._readData(fileName, label)
+    def add_data(self, fileName = None, label = 0):
+        df = self._read_data(fileName, label)
         df['label'] = label
         if self.df is None:
             self.df = df
@@ -96,7 +96,7 @@ class Preprocessor():
             self.df = pd.concat([self.df, df])
 
 
-    def cleanData(self, df, config=None):
+    def clean_data(self, df, config=None):
         if config == None:
             config = self.config
 

@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
-from .mscwReader import mscwReader
+from .MscwReader import MscwReader
 from .templates import reductionTemplate
 from .IRFMaker import IRFHandler
 import logging
 
-class dataReduction():
+class DataRetuction():
 
     def __init__(self):
         self.irfs = IRFHandler()
@@ -16,13 +16,13 @@ class dataReduction():
         Read in a config file which will store the runlist
         and store the irf file names
     '''
-    def readConfig(self, configFile):
+    def read_config(self, configFile):
         logging.debug(f"Reading config file: {configFile}")
         pass
 
     '''
         Loop over mscw files in the runlist and produce a DL3 file
     '''
-    def reduceFiles(self):
+    def reduce_files(self):
         logging.debug(f"Reducing files")
         pass

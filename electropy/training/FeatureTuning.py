@@ -25,7 +25,7 @@ class FeatureTuner(Preprocessor):
         super().__init__()
         self._n_jobs = 1
         self.test_size = 0.33
-        self.setModel()
+        self.set_model()
         self.method = "energy"
 
 
@@ -39,30 +39,30 @@ class FeatureTuner(Preprocessor):
         # model needs to be updated once n_jobs is changed
         self.model.n_jobs = self._n_jobs
 
-    def setModel(self, mtype = None):
+    def set_model(self, mtype = None):
         
         if mtype is not None:
-            self.modelName = mtype
+            self.model_name = mtype
         elif "Model" in self.config:
-            self.modelName = self.config["Model"]
+            self.model_name = self.config["Model"]
         else :
-            self.modelName = "RandomForestRegressor"
-        self._makeModel()
+            self.model_name = "RandomForestRegressor"
+        self._make_model()
         
-    def _makeModel(self):
-        if self.modelName == "RandomForestRegressor":
+    def _make_model(self):
+        if self.model_name == "RandomForestRegressor":
             self.model = RandomForestRegressor()
             criterion = 'squared_error'
         
-        elif self.modelName == "XGBRegressor":
+        elif self.model_name == "XGBRegressor":
             self.model = XGBRegressor()
             criterion = 'squared_error'
         
-        elif self.modelName == "RandomForestClassifier":
+        elif self.model_name == "RandomForestClassifier":
             self.model = RandomForestClassifier()
             criterion = 'gini'
 
-        elif self.modelName == "XGBClassifier":
+        elif self.model_name == "XGBClassifier":
             self.model = XGBClassifier()
             criterion = 'gini'
 
@@ -78,7 +78,7 @@ class FeatureTuner(Preprocessor):
         self.model.max_features='sqrt'
 
 
-    def performEnergyEstimation(self, config_file, scaler, model):
+    def perform_energy_estimation(self, config_file, scaler, model):
         # Load in what we need
         with open(config_file, 'r') as inFile:
             tmp_config = yaml.safe_load(inFile)
@@ -92,7 +92,7 @@ class FeatureTuner(Preprocessor):
                 )
             )
 
-    def fitModel(self, features):
+    def fit_model(self, features):
         # Extract features and values
         if self.method == "energy":
             y = self.df["ENERGY_MC"].values
@@ -129,11 +129,11 @@ class FeatureTuner(Preprocessor):
 
         return score, imp, pre       
 
-    def writeModel(self, fileName):
+    def write_model(self, fileName):
         dump(self.model, fileName)
         
 
-    def tuneFeatures(self, delta = 0.05, refit = False):
+    def tune_features(self, delta = 0.05, refit = False):
 
         # Check that we have multiple labels
         if self.method == "classify":
@@ -163,7 +163,7 @@ class FeatureTuner(Preprocessor):
         # for i in range(count_max):
         while len(features_new) > 4:
 
-            new_score, importance, prec = self.fitModel(features_new)
+            new_score, importance, prec = self.fit_model(features_new)
             asort = np.argsort(importance)[::-1]
             
             # For classifier use precission instead of f-score 
@@ -237,4 +237,4 @@ class FeatureTuner(Preprocessor):
             logging.warning(f"{ostr}")
             
         if refit == True:
-            self.fitModel(self.config["Features"])
+            self.fit_model(self.config["Features"])

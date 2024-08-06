@@ -1,11 +1,11 @@
-reductionTemplate="""
+reduction_template="""
 FileName: MSCWData
 OutputName: Output
 EnergyEstimator: energy.joblib
 Classifier: class.joblib
 """
 
-irfTemplate="""
+irf_template="""
 EnergyScaler: "/home/obriens/DataAnalysis/Veritas/electron/EnergyEstimator/rndf_scaler.joblib"
 Energy: "/home/obriens/DataAnalysis/Veritas/electron/EnergyEstimator/rndf_energy.joblib"
 FeaturesEnergy: 
