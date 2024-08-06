@@ -57,6 +57,8 @@ class mscwReader():
 
             dt, _ = dataFile["deadTimeHistograms/hScalarDeadTimeFraction_on"].to_numpy()
             self.metaData["DeadTime"] = np.median(dt)
+            self.metaData["RA_PNT"] = self.tel_ra
+            self.metaData["DEC_PNT"] = self.tel_dec
 
             if not self.target:
                 try :
@@ -352,6 +354,9 @@ class mscwReader():
         hdul[0].header["Az"] = (circmean(self.metaData['Az']*u.deg).value, "Mean Azimuth")
         hdul[0].header["DEADTIME"] = (self.metaData["DeadTime"], "Fractional Deadtime")
         hdul[0].header["DURATION"] = (self.metaData["Duration"], "Duration (s)")
+        hdul[0].header["RA_PNT"] = (self.metaData["RA_PNT"], "Pointing Right Ascension (deg)")
+        hdul[0].header["DEC_PNT"] = (self.metaData["DEC_PNT"], "Pointing Declination (deg)")
+        
         hdul[1].name = "MSCW"
         hdul.writeto(outdir + "/" + outname, overwrite = True)
 

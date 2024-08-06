@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 
 ## Models to test
 from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor, StackingRegressor, RandomForestClassifier
-from xgboost.sklearn import XGBRegressor
+from xgboost.sklearn import XGBRegressor, XGBClassifier
 
 ## Evaluating
 from sklearn.metrics import mean_absolute_error, mean_squared_error, precision_score, precision_recall_fscore_support
@@ -60,6 +60,10 @@ class FeatureTuner(Preprocessor):
         
         elif self.modelName == "RandomForestClassifier":
             self.model = RandomForestClassifier()
+            criterion = 'gini'
+
+        elif self.modelName == "XGBClassifier":
+            self.model = XGBClassifier()
             criterion = 'gini'
 
         # Default parameter for a RandomForrest/XGB Regressor
