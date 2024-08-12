@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools", "setuptools_scm[toml]"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages=[
+    "electropy", 
+    "electropy.mscw_reader", 
+    "electropy.training", 
+    "electropy.utils",
+    ]
+
+[tool.setuptools_scm]
+write_to = "electropy/__version__.py"
+
+[project]
+name = "electropy"
+dynamic = ["version"]
+description = "Tools for training ML models on astronomical data from IACTs like VERITAS"
+readme = "README.md"
+license = { file="LICENSE" }
+
+requires-python = ">=3.9"
+
+
+dependencies = [
+    'astropy',
+    'matplotlib',
+    'scipy',
+    'numpy',
+    'uproot',
+    'pandas',
+    'iminuit',
+    'gammapy',
+    'pyslalib',
+    'cmasher',
+    'scikit-learn',
+    'xgboost',
+    'tqdm',
+]
+
+[project.optional-dependencies]
+"tests" = [
+    "pytest",
+    "pytest-cov",
+]
+
+[project.urls]
+#"documentation" = "https://github.com/steob92/ElectroPY/"
+#"repository" = "https://github.com/steob92/ElectroPY/"
+#"bug tracker" = "https://github.com/steob92/ElectroPY/issues"
+
+[project.scripts]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "$version"
+version_scheme = "semver"
+version_provider = "scm"
+update_changelog_on_bump = true
+changelog_incremental = true
+version_files = [
+    "electropy/__version__.py",
+    "pyproject.toml:version"
+]

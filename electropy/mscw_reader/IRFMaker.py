@@ -149,7 +149,7 @@ class IRFMaker():
 
 
 
-    def classifyEvent_data(self, event_class = None):
+    def classify_event_data(self, event_class = None):
 
         if event_class is None:
             event_class = self.event_class

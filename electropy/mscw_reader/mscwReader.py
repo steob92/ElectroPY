@@ -192,7 +192,7 @@ class MscwReader():
                 list(
                     map(
                         VSK.convert_derotated_coordinates_to_J2000,
-                        VSK.getUTC(self.data_dict['MJD'], self.data_dict["timeOfDay"]),
+                        VSK.get_utc(self.data_dict['MJD'], self.data_dict["timeOfDay"]),
                         np.repeat(self.target.ra.deg, len(self.data_dict["Xoff_derot"])),
                         np.repeat(self.target.dec.deg, len(self.data_dict["Xoff_derot"])), 
                         self.data_dict['Xoff_derot'],

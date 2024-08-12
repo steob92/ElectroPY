@@ -84,7 +84,8 @@ class FeatureTuner(Preprocessor):
             tmp_config = yaml.safe_load(inFile)
         tmp_model = load(model)
         tmp_scaler = load(scaler)
-
+        print (tmp_config["Features"])
+        print (tmp_model)
         # Obtain the model prediction
         self.df["ENERGY"] = tmp_model.predict(
                 tmp_scaler.transform(
